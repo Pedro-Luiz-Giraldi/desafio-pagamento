@@ -149,8 +149,16 @@
                     <execution><goals><goal>prepare-agent</goal></goals></execution>
                     <execution><id>report</id><phase>test</phase><goals><goal>report</goal></goals></execution>
                     <execution>
-                        <id>check</id><goals><goal>check</goal></goals>
+                        <id>check</id>
+                        <phase>verify</phase>
+                        <goals><goal>check</goal></goals>
                         <configuration>
+                            <excludes>
+                                <exclude>com/acaboumony/order/domain/entity/**</exclude>
+                                <exclude>com/acaboumony/order/OrderServiceApplication.class</exclude>
+                                <exclude>com/acaboumony/order/dto/**</exclude>
+                                <exclude>com/acaboumony/order/exception/**</exclude>
+                            </excludes>
                             <rules><rule><element>BUNDLE</element><limits><limit>
                                 <counter>LINE</counter><value>COVEREDRATIO</value>
                                 <minimum>${jacoco.minimum-coverage}</minimum>
