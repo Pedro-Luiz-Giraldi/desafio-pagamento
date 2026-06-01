@@ -58,8 +58,10 @@ public final class RsaKeyLoader {
     }
 
     private static byte[] decode(String base64Pem) {
+        // Replace literal \n (two chars from .env / Docker env vars) with real newline
+        String normalized = base64Pem.replace("\\n", "\n");
         // Strip PEM headers/footers and whitespace, then base64-decode
-        String clean = HEADER_PATTERN.matcher(base64Pem).replaceAll("");
+        String clean = HEADER_PATTERN.matcher(normalized).replaceAll("");
         clean = clean.replaceAll("\\s+", "");
         return Base64.getDecoder().decode(clean);
     }

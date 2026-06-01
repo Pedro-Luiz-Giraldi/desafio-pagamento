@@ -1,9 +1,9 @@
 # Plano Técnico: API Gateway
 
 **Spec:** [spec.md](spec.md)
-**Status:** Draft
+**Status:** Approved
 **Responsável:** Dev 2
-**Sprint:** 1
+**Sprint:** 2
 
 ---
 
@@ -15,7 +15,7 @@
 | JWT validation | Delegado ao user-service (com cache Redis) | Validação local com chave pública | Centraliza lógica de auth; cache de 30s reduz overhead |
 | Rate limiting | Redis Token Bucket (Spring Cloud Gateway built-in) | Nginx rate limit | Distribuído entre instâncias do gateway |
 | Circuit breaker | Resilience4j | Hystrix (deprecated) | Suportado oficialmente pelo Spring, moderno |
-| Service discovery | Hostnames Docker Compose | Kubernetes Service | Compatível com Docker Compose; migrar para K8s depois |
+| Service discovery | Hostnames Docker Compose | Kubernetes Service | Docker Compose é a infra definitiva do projeto |
 
 ---
 
