@@ -1,6 +1,5 @@
 package com.acaboumony.fraud.service;
 
-import com.anthropic.client.okhttp.AnthropicOkHttpClient;
 import com.anthropic.models.messages.Message;
 import com.anthropic.models.messages.MessageCreateParams;
 import com.anthropic.models.messages.Model;
@@ -10,17 +9,14 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
-import java.time.Duration;
 import java.util.Optional;
 
 @Component
 public class ClaudeContextAnalyzerImpl implements ClaudeContextAnalyzer {
 
     private static final Logger log = LoggerFactory.getLogger(ClaudeContextAnalyzerImpl.class);
-    private static final int TIMEOUT_MS = 250;
     private static final String SYSTEM_PROMPT = """
         You are a fraud detection analyst. Analyze the risk of this transaction and respond with a JSON object only.
         {"adjustment": N, "reasoning": "..."}
@@ -30,16 +26,7 @@ public class ClaudeContextAnalyzerImpl implements ClaudeContextAnalyzer {
     private final com.anthropic.client.AnthropicClient client;
     private final ObjectMapper objectMapper;
 
-    public ClaudeContextAnalyzerImpl(@Value("${anthropic.api-key:}") String apiKey) {
-        this(apiKey != null && !apiKey.isBlank()
-            ? AnthropicOkHttpClient.builder()
-                .apiKey(apiKey)
-                .timeout(Duration.ofMillis(TIMEOUT_MS))
-                .build()
-            : null);
-    }
-
-    ClaudeContextAnalyzerImpl(com.anthropic.client.AnthropicClient client) {
+    public ClaudeContextAnalyzerImpl(com.anthropic.client.AnthropicClient client) {
         this.client = client;
         this.objectMapper = new ObjectMapper();
         if (client == null) {
@@ -70,10 +57,34 @@ public class ClaudeContextAnalyzerImpl implements ClaudeContextAnalyzer {
         }
     }
 
+    @Override
+    public AdjustmentResult adjustWithReasoning(FraudAnalysisRequest request, int baseScore) {
+        if (client == null) {
+            return new AdjustmentResult(0, null);
+        }
+
+        String userPrompt = buildUserPrompt(request, baseScore);
+        MessageCreateParams params = MessageCreateParams.builder()
+            .model(Model.CLAUDE_3_5_HAIKU_LATEST)
+            .maxTokens(100)
+            .system(SYSTEM_PROMPT)
+            .addUserMessage(userPrompt)
+            .build();
+
+        try {
+            Message response = client.messages().create(params);
+            return parseAdjustmentWithReasoning(response);
+        } catch (Exception e) {
+            log.warn("Claude API call failed for transaction {}: {}", request.transactionId(), e.getMessage());
+            return new AdjustmentResult(0, null);
+        }
+    }
+
     String buildUserPrompt(FraudAnalysisRequest request, int baseScore) {
         return String.format("""
             Transaction ID: %s
             Customer ID: %s
+            Merchant ID: %s
             Amount: %d cents
             Payment method: %s
             IP: %s
@@ -82,6 +93,7 @@ public class ClaudeContextAnalyzerImpl implements ClaudeContextAnalyzer {
             """,
             request.transactionId(),
             request.customerId(),
+            request.merchantId(),
             request.amountInCents(),
             request.paymentMethodId(),
             request.ipAddress(),
@@ -97,6 +109,14 @@ public class ClaudeContextAnalyzerImpl implements ClaudeContextAnalyzer {
         return parseAdjustmentText(sb.toString());
     }
 
+    AdjustmentResult parseAdjustmentWithReasoning(Message response) {
+        StringBuilder sb = new StringBuilder();
+        for (var block : response.content()) {
+            block.text().ifPresent(t -> sb.append(t.text()));
+        }
+        return parseAdjustmentWithReasoningText(sb.toString());
+    }
+
     int parseAdjustmentText(String text) {
         if (text.isBlank()) {
             log.warn("Claude returned empty response");
@@ -110,6 +130,23 @@ public class ClaudeContextAnalyzerImpl implements ClaudeContextAnalyzer {
         } catch (JsonProcessingException e) {
             log.warn("Failed to parse Claude response: {}", text);
             return 0;
+        }
+    }
+
+    AdjustmentResult parseAdjustmentWithReasoningText(String text) {
+        if (text.isBlank()) {
+            log.warn("Claude returned empty response");
+            return new AdjustmentResult(0, null);
+        }
+
+        try {
+            JsonNode root = objectMapper.readTree(text);
+            int adjustment = Math.clamp(root.path("adjustment").asInt(0), -10, 10);
+            String reasoning = root.path("reasoning").asText(null);
+            return new AdjustmentResult(adjustment, reasoning);
+        } catch (JsonProcessingException e) {
+            log.warn("Failed to parse Claude response: {}", text);
+            return new AdjustmentResult(0, null);
         }
     }
 }

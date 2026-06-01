@@ -15,18 +15,6 @@ class ClaudeContextAnalyzerImplTest {
     );
 
     @Test
-    void noApiKey_shouldReturnZero() {
-        var analyzer = new ClaudeContextAnalyzerImpl("");
-        assertEquals(0, analyzer.getContextualAdjustment(request, 50));
-    }
-
-    @Test
-    void blankApiKey_shouldReturnZero() {
-        var analyzer = new ClaudeContextAnalyzerImpl("   ");
-        assertEquals(0, analyzer.getContextualAdjustment(request, 50));
-    }
-
-    @Test
     void nullClient_shouldReturnZero() {
         var analyzer = new ClaudeContextAnalyzerImpl((com.anthropic.client.AnthropicClient) null);
         assertEquals(0, analyzer.getContextualAdjustment(request, 50));
@@ -86,5 +74,52 @@ class ClaudeContextAnalyzerImplTest {
     void parseAdjustmentText_invalidJson_returnsZero() {
         var analyzer = new ClaudeContextAnalyzerImpl((com.anthropic.client.AnthropicClient) null);
         assertEquals(0, analyzer.parseAdjustmentText("not json"));
+    }
+
+    @Test
+    void adjustWithReasoning_nullClient_returnsZeroAdjustmentAndNullReasoning() {
+        var analyzer = new ClaudeContextAnalyzerImpl((com.anthropic.client.AnthropicClient) null);
+        var result = analyzer.adjustWithReasoning(request, 50);
+        assertEquals(0, result.adjustment());
+        assertNull(result.reasoning());
+    }
+
+    @Test
+    void parseAdjustmentWithReasoningText_validJson_returnsBothFields() {
+        var analyzer = new ClaudeContextAnalyzerImpl((com.anthropic.client.AnthropicClient) null);
+        var result = analyzer.parseAdjustmentWithReasoningText("{\"adjustment\": -5, \"reasoning\": \"low risk\"}");
+        assertEquals(-5, result.adjustment());
+        assertEquals("low risk", result.reasoning());
+    }
+
+    @Test
+    void parseAdjustmentWithReasoningText_blank_returnsZeroAndNull() {
+        var analyzer = new ClaudeContextAnalyzerImpl((com.anthropic.client.AnthropicClient) null);
+        var result = analyzer.parseAdjustmentWithReasoningText("   ");
+        assertEquals(0, result.adjustment());
+        assertNull(result.reasoning());
+    }
+
+    @Test
+    void parseAdjustmentWithReasoningText_invalidJson_returnsZeroAndNull() {
+        var analyzer = new ClaudeContextAnalyzerImpl((com.anthropic.client.AnthropicClient) null);
+        var result = analyzer.parseAdjustmentWithReasoningText("not json");
+        assertEquals(0, result.adjustment());
+        assertNull(result.reasoning());
+    }
+
+    @Test
+    void parseAdjustmentWithReasoningText_clampsValues() {
+        var analyzer = new ClaudeContextAnalyzerImpl((com.anthropic.client.AnthropicClient) null);
+        var result = analyzer.parseAdjustmentWithReasoningText("{\"adjustment\": 15}");
+        assertEquals(10, result.adjustment());
+        assertNull(result.reasoning());
+    }
+
+    @Test
+    void buildUserPrompt_containsMerchantId() {
+        var analyzer = new ClaudeContextAnalyzerImpl((com.anthropic.client.AnthropicClient) null);
+        String prompt = analyzer.buildUserPrompt(request, 50);
+        assertTrue(prompt.contains("Merchant ID:"));
     }
 }
