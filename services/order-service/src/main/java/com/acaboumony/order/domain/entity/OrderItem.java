@@ -1,5 +1,6 @@
 package com.acaboumony.order.domain.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -57,6 +58,7 @@ public class OrderItem {
         this.id = id;
     }
 
+    @JsonIgnore
     public Order getOrder() {
         return order;
     }

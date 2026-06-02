@@ -1,5 +1,7 @@
 package com.acaboumony.notification.service;
 
+import io.micrometer.core.instrument.Gauge;
+import io.micrometer.core.instrument.MeterRegistry;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import org.slf4j.Logger;
@@ -21,17 +23,24 @@ public class EmailRateLimiter {
     private static final int CLEANUP_INTERVAL_MINUTES = 5;
 
     private final int maxEmailsPerHour;
+    private final MeterRegistry meterRegistry;
 
     private final Map<String, EmailBucket> buckets = new ConcurrentHashMap<>();
     private final ScheduledExecutorService cleanupExecutor = Executors.newSingleThreadScheduledExecutor();
 
-    public EmailRateLimiter(@Value("${notification.email.rate-limit:10}") int maxEmailsPerHour) {
+    public EmailRateLimiter(@Value("${notification.email.rate-limit:10}") int maxEmailsPerHour,
+                            MeterRegistry meterRegistry) {
         this.maxEmailsPerHour = maxEmailsPerHour;
+        this.meterRegistry = meterRegistry;
     }
 
     @PostConstruct
     void startCleanup() {
         cleanupExecutor.scheduleAtFixedRate(this::cleanup, CLEANUP_INTERVAL_MINUTES, CLEANUP_INTERVAL_MINUTES, TimeUnit.MINUTES);
+
+        Gauge.builder("notification.email.active.buckets", buckets, Map::size)
+                .description("Current number of active rate limiter buckets")
+                .register(meterRegistry);
     }
 
     @PreDestroy
@@ -49,6 +58,8 @@ public class EmailRateLimiter {
             bucket.removeExpired(now);
             if (bucket.count() >= maxEmailsPerHour) {
                 log.warn("Rate limit reached for {}: {} emails in the last hour", recipientEmail, bucket.count());
+                meterRegistry.counter("notification.email.rate.limited",
+                        "recipient", recipientEmail).increment();
                 return true;
             }
             bucket.add(now);

@@ -3,6 +3,7 @@ package com.acaboumony.notification.service;
 import com.acaboumony.notification.domain.entity.NotificationLog;
 import com.acaboumony.notification.exception.EmailDeliveryException;
 import com.acaboumony.notification.repository.NotificationLogRepository;
+import io.micrometer.core.instrument.MeterRegistry;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 import org.slf4j.Logger;
@@ -29,15 +30,18 @@ public class EmailService {
     private final SpringTemplateEngine templateEngine;
     private final NotificationLogRepository notificationLogRepository;
     private final EmailRateLimiter emailRateLimiter;
+    private final MeterRegistry meterRegistry;
 
     public EmailService(JavaMailSender mailSender,
                         SpringTemplateEngine templateEngine,
                         NotificationLogRepository notificationLogRepository,
-                        EmailRateLimiter emailRateLimiter) {
+                        EmailRateLimiter emailRateLimiter,
+                        MeterRegistry meterRegistry) {
         this.mailSender = mailSender;
         this.templateEngine = templateEngine;
         this.notificationLogRepository = notificationLogRepository;
         this.emailRateLimiter = emailRateLimiter;
+        this.meterRegistry = meterRegistry;
     }
 
     public void sendEmail(String to, String subject, String templateName,
@@ -130,6 +134,8 @@ public class EmailService {
                 UUID.randomUUID(), eventType, to, "SENT", correlationId, null, Instant.now()
         );
         notificationLogRepository.save(logEntry);
+        meterRegistry.counter("notification.email.sent",
+                "event_type", eventType).increment();
         log.info("Email sent successfully: to={}, eventType={}", to, eventType);
     }
 

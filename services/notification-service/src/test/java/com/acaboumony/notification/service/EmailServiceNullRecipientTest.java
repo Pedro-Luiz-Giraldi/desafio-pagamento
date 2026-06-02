@@ -1,6 +1,8 @@
 package com.acaboumony.notification.service;
 
 import com.acaboumony.notification.repository.NotificationLogRepository;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -28,11 +30,13 @@ class EmailServiceNullRecipientTest {
     @Mock
     private EmailRateLimiter emailRateLimiter;
 
+    private final MeterRegistry meterRegistry = new SimpleMeterRegistry();
+
     private EmailService emailService;
 
     @BeforeEach
     void setUp() {
-        emailService = new EmailService(mailSender, templateEngine, notificationLogRepository, emailRateLimiter);
+        emailService = new EmailService(mailSender, templateEngine, notificationLogRepository, emailRateLimiter, meterRegistry);
     }
 
     @Test

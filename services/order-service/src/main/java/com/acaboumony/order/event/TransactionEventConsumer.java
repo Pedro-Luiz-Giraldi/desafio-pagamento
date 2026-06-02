@@ -1,7 +1,6 @@
 package com.acaboumony.order.event;
 
 import com.acaboumony.order.domain.enums.OrderStatus;
-import com.acaboumony.order.repository.OrderRepository;
 import com.acaboumony.order.service.OrderCacheService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -16,11 +15,9 @@ public class TransactionEventConsumer {
 
     private static final Logger log = LoggerFactory.getLogger(TransactionEventConsumer.class);
 
-    private final OrderRepository orderRepository;
     private final OrderCacheService orderCacheService;
 
-    public TransactionEventConsumer(OrderRepository orderRepository, OrderCacheService orderCacheService) {
-        this.orderRepository = orderRepository;
+    public TransactionEventConsumer(OrderCacheService orderCacheService) {
         this.orderCacheService = orderCacheService;
     }
 
@@ -30,7 +27,7 @@ public class TransactionEventConsumer {
         log.info("Received transaction.completed event: transactionId={}, orderId={}",
                 event.transactionId(), event.orderId());
 
-        var order = orderRepository.findById(event.orderId())
+        var order = orderCacheService.findById(event.orderId())
                 .orElse(null);
         if (order == null) {
             log.warn("Order not found for transaction.completed event: orderId={}", event.orderId());
@@ -42,8 +39,7 @@ public class TransactionEventConsumer {
             order.setTransactionId(event.transactionId());
             order.setUpdatedAt(Instant.now());
             order.setExpiresAt(null);
-            orderRepository.save(order);
-            orderCacheService.evict(event.orderId());
+            orderCacheService.cacheOrder(order);
             log.info("Order {} updated to PAID with transactionId={}", order.getId(), event.transactionId());
         } else {
             log.warn("Order {} is not in PENDING status (current={}), skipping transaction.completed",
@@ -57,7 +53,7 @@ public class TransactionEventConsumer {
         log.info("Received transaction.failed event: transactionId={}, orderId={}, reason={}",
                 event.transactionId(), event.orderId(), event.reason());
 
-        var order = orderRepository.findById(event.orderId())
+        var order = orderCacheService.findById(event.orderId())
                 .orElse(null);
         if (order == null) {
             log.warn("Order not found for transaction.failed event: orderId={}", event.orderId());
@@ -67,8 +63,7 @@ public class TransactionEventConsumer {
         if (order.getStatus() == OrderStatus.PROCESSING || order.getStatus() == OrderStatus.PENDING) {
             order.setStatus(OrderStatus.PENDING);
             order.setUpdatedAt(Instant.now());
-            orderRepository.save(order);
-            orderCacheService.evict(event.orderId());
+            orderCacheService.cacheOrder(order);
             log.info("Order {} returned to PENDING after transaction failure", order.getId());
         } else {
             log.warn("Order {} cannot be returned to PENDING (current={}), skipping transaction.failed",
@@ -82,7 +77,7 @@ public class TransactionEventConsumer {
         log.info("Received transaction.refunded event: transactionId={}, orderId={}, isFullRefund={}",
                 event.transactionId(), event.orderId(), event.isFullRefund());
 
-        var order = orderRepository.findById(event.orderId())
+        var order = orderCacheService.findById(event.orderId())
                 .orElse(null);
         if (order == null) {
             log.warn("Order not found for transaction.refunded event: orderId={}", event.orderId());
@@ -94,8 +89,7 @@ public class TransactionEventConsumer {
                 : OrderStatus.PARTIALLY_REFUNDED;
         order.setStatus(newStatus);
         order.setUpdatedAt(Instant.now());
-        orderRepository.save(order);
-        orderCacheService.evict(event.orderId());
+        orderCacheService.cacheOrder(order);
         log.info("Order {} updated to {} after refund", order.getId(), newStatus);
     }
 }

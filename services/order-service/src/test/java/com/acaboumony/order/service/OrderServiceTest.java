@@ -319,6 +319,22 @@ class OrderServiceTest {
     }
 
     @Nested
+    class AuthorizeAccess {
+
+        @Test
+        void shouldThrowWhenMerchantWithoutMerchantId() {
+            var now = Instant.now();
+            var order = createOrderEntity(OrderStatus.PENDING, now);
+            when(orderCacheService.findById(order.getId())).thenReturn(Optional.of(order));
+
+            assertThatThrownBy(() ->
+                    orderService.getOrder(order.getId(), UUID.randomUUID(), "MERCHANT", null))
+                    .isInstanceOf(InsufficientPermissionsException.class)
+                    .hasMessageContaining("X-Merchant-Id");
+        }
+    }
+
+    @Nested
     class ListOrders {
 
         @Test
@@ -358,6 +374,27 @@ class OrderServiceTest {
             var result = orderService.listOrders(UUID.randomUUID(), "ADMIN", null, null, 0, 20);
 
             assertThat(result.content()).hasSize(1);
+        }
+
+        @Test
+        void shouldListAdminOrdersWithStatusFilter() {
+            var now = Instant.now();
+            var order = createOrderEntity(OrderStatus.PAID, now);
+            var page = new PageImpl<>(List.of(order));
+            var pageable = PageRequest.of(0, 20, Sort.by("createdAt").descending());
+            when(orderRepository.findByStatus(OrderStatus.PAID, pageable)).thenReturn(page);
+
+            var result = orderService.listOrders(UUID.randomUUID(), "ADMIN", null, "PAID", 0, 20);
+
+            assertThat(result.content()).hasSize(1);
+        }
+
+        @Test
+        void shouldThrowWhenMerchantWithoutMerchantIdLists() {
+            assertThatThrownBy(() ->
+                    orderService.listOrders(UUID.randomUUID(), "MERCHANT", null, null, 0, 20))
+                    .isInstanceOf(InsufficientPermissionsException.class)
+                    .hasMessageContaining("X-Merchant-Id");
         }
 
         @Test

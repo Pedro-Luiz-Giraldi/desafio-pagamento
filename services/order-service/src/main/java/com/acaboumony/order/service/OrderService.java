@@ -124,9 +124,12 @@ public class OrderService {
         Page<Order> orderPage;
         if ("ADMIN".equals(role)) {
             orderPage = statusFilter != null
-                    ? orderRepository.findByCustomerIdAndStatus(null, OrderStatus.valueOf(statusFilter), pageable)
+                    ? orderRepository.findByStatus(OrderStatus.valueOf(statusFilter), pageable)
                     : orderRepository.findAll(pageable);
-        } else if ("MERCHANT".equals(role) && merchantId != null) {
+        } else if ("MERCHANT".equals(role)) {
+            if (merchantId == null) {
+                throw new InsufficientPermissionsException("MERCHANT role requires X-Merchant-Id header");
+            }
             orderPage = statusFilter != null
                     ? orderRepository.findByMerchantIdAndStatus(merchantId, OrderStatus.valueOf(statusFilter), pageable)
                     : orderRepository.findByMerchantId(merchantId, pageable);
@@ -200,6 +203,9 @@ public class OrderService {
             return;
         }
         if ("MERCHANT".equals(role)) {
+            if (merchantId == null) {
+                throw new InsufficientPermissionsException("MERCHANT role requires X-Merchant-Id header");
+            }
             if (order.getMerchantId().equals(merchantId)) {
                 return;
             }
