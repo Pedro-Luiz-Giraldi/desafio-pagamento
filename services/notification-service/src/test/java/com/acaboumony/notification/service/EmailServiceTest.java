@@ -3,6 +3,8 @@ package com.acaboumony.notification.service;
 import com.acaboumony.notification.domain.entity.NotificationLog;
 import com.acaboumony.notification.exception.EmailDeliveryException;
 import com.acaboumony.notification.repository.NotificationLogRepository;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import jakarta.mail.Session;
 import jakarta.mail.internet.MimeMessage;
 import org.junit.jupiter.api.BeforeEach;
@@ -42,11 +44,13 @@ class EmailServiceTest {
     @Mock
     private EmailRateLimiter emailRateLimiter;
 
+    private final MeterRegistry meterRegistry = new SimpleMeterRegistry();
+
     private EmailService emailService;
 
     @BeforeEach
     void setUp() {
-        emailService = new EmailService(mailSender, templateEngine, notificationLogRepository, emailRateLimiter);
+        emailService = new EmailService(mailSender, templateEngine, notificationLogRepository, emailRateLimiter, meterRegistry);
     }
 
     private void allowRateLimit() {
