@@ -2,8 +2,8 @@
 
 **ID:** SPEC-GWY-001
 **Serviço:** api-gateway
-**Status:** Draft
-**Revisores:** [ ] PM [ ] Arquiteto [ ] QA [ ] Security
+**Status:** Approved
+**Revisores:** [x] PM [x] Arquiteto [x] QA [x] Security
 
 ---
 
@@ -71,7 +71,7 @@ Cliente
 - Token válido → adicionar headers ao request antes de rotear:
   - `X-User-Id: {userId}`
   - `X-User-Email: {email}`
-  - `X-User-Roles: {roles separados por vírgula}`
+  - `X-User-Role: {role}` (ex: CUSTOMER, MERCHANT_OWNER, STAFF)
   - `X-Merchant-Id: {merchantId ou vazio}`
 
 ### 5.2 Cache do Resultado de Validação
