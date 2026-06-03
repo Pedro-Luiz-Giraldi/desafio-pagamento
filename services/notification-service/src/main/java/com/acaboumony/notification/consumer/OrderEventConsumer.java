@@ -57,7 +57,7 @@ public class OrderEventConsumer {
         emailService.sendEmail(
                 event.customerEmail(),
                 "Pedido cancelado — #" + event.orderId(),
-                "order-created",
+                "order-cancelled",
                 variables,
                 event.orderId().toString()
         );

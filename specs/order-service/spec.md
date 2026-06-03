@@ -268,3 +268,46 @@ PENDING → PROCESSING → PAID
 - `totalInCents` calculado no servidor — nunca confiar no total enviado pelo cliente
 - Acesso a pedidos de outros usuários → HTTP 403 (nunca 404)
 - Rate limiting: 50 pedidos/min por customerId
+
+---
+
+## 11. Safety
+
+### 11.1 Graceful Shutdown
+
+- O order-service deve concluir o processamento do evento Kafka atual antes de desligar
+- Consumers Kafka usam `ackMode = MANUAL` para garantir confirmação apenas após processamento completo
+- O `OrderExpirationService` (scheduled task) deve ser interrompido graciosamente via `@PreDestroy`
+
+### 11.2 Idempotência e Consistência
+
+- `idempotencyKey` com TTL de 24h no Redis previne criação duplicada de pedidos mesmo após restart do serviço
+- Cache via `OrderCacheService` com serialização Jackson — evita inconsistências entre JPA L1 cache e Redis
+- Eventos Kafka consumidos com `isolation.level = read_committed` para evitar leitura de transações não confirmadas
+
+### 11.3 Tratamento de Falhas em Kafka
+
+| Cenário | Comportamento |
+|----------|--------------|
+| Evento `transaction.completed` não encontra pedido no banco | Log de erro + DLQ; não quebra o consumer loop |
+| Evento `transaction.failed` com pedido já PAID | Log de warning + ignora (estado inconsistente) |
+| Redis indisponível durante criação do pedido | Pedido é criado no banco, mas sem idempotência (falha de segurança aceita com alerta) |
+| Kafka broker indisponível na criação do pedido | Pedido criado como PENDING; evento `order.created` entra em retry (Spring Kafka retry) |
+
+### 11.4 Imutabilidade de Itens
+
+- Itens de um pedido são imutáveis após a criação — nunca permitir `PATCH` ou `PUT` em itens
+- O campo `totalInCents` é sempre recalculado no servidor a partir dos `items` recebidos
+- Um pedido PAID nunca pode voltar ao status PENDING
+
+### 11.5 Rate Limiting e Abuso
+
+- 50 requisições/min por `customerId` (configurável via `order.rate-limit.max-per-minute`)
+- 100 itens máximo por página na listagem (`GET /api/v1/orders`)
+- Timeout de conexão com Redis: 2s — se Redis falha, operação de idempotência é ignorada (pedido criado mesmo assim)
+
+### 11.6 Monitoring e Alertas
+
+- Micrometer expõe métricas de cache (hit/miss) via `/actuator/metrics`
+- Kafka consumer lag monitorado — alerta se lag > 100 mensagens por mais de 1 minuto
+- Health check do Redis via Spring Boot Actuator (`/actuator/health`)
