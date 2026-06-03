@@ -4,13 +4,19 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.kafka.core.KafkaTemplate;
 
+import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 
-import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
@@ -19,13 +25,19 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class TransactionEventProducerTest {
 
-    @Mock KafkaTemplate<String, Object> kafkaTemplate;
+    @Mock
+    private KafkaTemplate<String, Object> kafkaTemplate;
 
-    TransactionEventProducer producer;
+    @Captor
+    private ArgumentCaptor<TransactionCompletedEvent> completedCaptor;
 
-    private static final UUID ORDER_ID = UUID.randomUUID();
-    private static final UUID CUSTOMER_ID = UUID.randomUUID();
-    private static final String TX_ID = "txn_abc123";
+    @Captor
+    private ArgumentCaptor<TransactionFailedEvent> failedCaptor;
+
+    @Captor
+    private ArgumentCaptor<TransactionRefundedEvent> refundedCaptor;
+
+    private TransactionEventProducer producer;
 
     @BeforeEach
     void setUp() {
@@ -33,43 +45,56 @@ class TransactionEventProducerTest {
     }
 
     @Test
-    void publishes_completed_event_to_correct_topic() {
-        producer.publishTransactionCompleted(TX_ID, ORDER_ID, CUSTOMER_ID, 5000L);
+    void publishCompleted_sendsToCorrectTopic() {
+        when(kafkaTemplate.send(eq("transaction.completed"), eq("txn_001"), any()))
+            .thenReturn(CompletableFuture.completedFuture(null));
 
-        ArgumentCaptor<Object> eventCaptor = ArgumentCaptor.forClass(Object.class);
-        verify(kafkaTemplate).send(eq("transaction.completed"), eq(TX_ID), eventCaptor.capture());
+        var event = new TransactionCompletedEvent(
+            "txn_001", 123L, UUID.randomUUID(), UUID.randomUUID(),
+            UUID.randomUUID(), "c@t.com", "m@t.com",
+            5000L, "BRL", "visa", "1234", 1,
+            List.of(new TransactionCompletedEvent.ItemEvent("Item", 1, 1000L)),
+            Instant.now(), "APPROVED"
+        );
+        producer.publishCompleted(event);
 
-        assertThat(eventCaptor.getValue()).isInstanceOf(TransactionCompletedEvent.class);
-        TransactionCompletedEvent event = (TransactionCompletedEvent) eventCaptor.getValue();
-        assertThat(event.transactionId()).isEqualTo(TX_ID);
-        assertThat(event.orderId()).isEqualTo(ORDER_ID);
-        assertThat(event.customerId()).isEqualTo(CUSTOMER_ID);
-        assertThat(event.amountInCents()).isEqualTo(5000L);
-        assertThat(event.timestamp()).isNotNull();
+        verify(kafkaTemplate).send(eq("transaction.completed"), eq("txn_001"), completedCaptor.capture());
+        var captured = completedCaptor.getValue();
+        assertEquals("txn_001", captured.transactionId());
+        assertEquals(5000L, captured.amountInCents());
+        assertNotNull(captured.processedAt());
     }
 
     @Test
-    void publishes_failed_event_to_correct_topic() {
-        producer.publishTransactionFailed(TX_ID, ORDER_ID, CUSTOMER_ID, "CARD_DECLINED");
+    void publishFailed_sendsToCorrectTopic() {
+        when(kafkaTemplate.send(eq("transaction.failed"), eq("txn_001"), any()))
+            .thenReturn(CompletableFuture.completedFuture(null));
 
-        ArgumentCaptor<Object> eventCaptor = ArgumentCaptor.forClass(Object.class);
-        verify(kafkaTemplate).send(eq("transaction.failed"), eq(TX_ID), eventCaptor.capture());
+        var event = new TransactionFailedEvent(
+            "txn_001", UUID.randomUUID(), UUID.randomUUID(),
+            "c@t.com", 5000L, "CARD_DECLINED",
+            Instant.now().toString(), "FAILURE"
+        );
+        producer.publishFailed(event);
 
-        assertThat(eventCaptor.getValue()).isInstanceOf(TransactionFailedEvent.class);
-        TransactionFailedEvent event = (TransactionFailedEvent) eventCaptor.getValue();
-        assertThat(event.errorCode()).isEqualTo("CARD_DECLINED");
+        verify(kafkaTemplate).send(eq("transaction.failed"), eq("txn_001"), failedCaptor.capture());
+        assertEquals("CARD_DECLINED", failedCaptor.getValue().reason());
     }
 
     @Test
-    void publishes_refunded_event_to_correct_topic() {
-        producer.publishTransactionRefunded(TX_ID, ORDER_ID, CUSTOMER_ID, 2500L, false);
+    void publishRefunded_sendsToCorrectTopic() {
+        when(kafkaTemplate.send(eq("transaction.refunded"), eq("txn_001"), any()))
+            .thenReturn(CompletableFuture.completedFuture(null));
 
-        ArgumentCaptor<Object> eventCaptor = ArgumentCaptor.forClass(Object.class);
-        verify(kafkaTemplate).send(eq("transaction.refunded"), eq(TX_ID), eventCaptor.capture());
+        var event = new TransactionRefundedEvent(
+            "ref_001", "txn_001", UUID.randomUUID(),
+            "c@t.com", 5000L, true, "CUSTOMER_REQUEST",
+            7, Instant.now()
+        );
+        producer.publishRefunded(event);
 
-        assertThat(eventCaptor.getValue()).isInstanceOf(TransactionRefundedEvent.class);
-        TransactionRefundedEvent event = (TransactionRefundedEvent) eventCaptor.getValue();
-        assertThat(event.refundedAmountInCents()).isEqualTo(2500L);
-        assertThat(event.fullRefund()).isFalse();
+        verify(kafkaTemplate).send(eq("transaction.refunded"), eq("txn_001"), refundedCaptor.capture());
+        assertEquals("ref_001", refundedCaptor.getValue().refundId());
+        assertTrue(refundedCaptor.getValue().isFullRefund());
     }
 }

@@ -1,49 +1,56 @@
 package com.acaboumony.order.service;
 
-import com.acaboumony.order.domain.entity.Order;
 import com.acaboumony.order.domain.enums.OrderStatus;
+import com.acaboumony.order.event.OrderCancelledEvent;
 import com.acaboumony.order.event.OrderEventProducer;
 import com.acaboumony.order.repository.OrderRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
-import org.springframework.stereotype.Service;
+import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
-import java.util.List;
+import java.util.concurrent.TimeUnit;
 
-/**
- * Scheduled service that cancels PENDING orders whose expiration time has passed.
- *
- * <p>Runs every 60 seconds. Expired orders are transitioned to CANCELLED and a
- * {@code order.cancelled} Kafka event is published for downstream services.</p>
- */
-@Service
+@Component
 public class OrderExpirationService {
 
     private static final Logger log = LoggerFactory.getLogger(OrderExpirationService.class);
 
     private final OrderRepository orderRepository;
-    private final OrderEventProducer eventProducer;
+    private final OrderEventProducer orderEventProducer;
 
-    public OrderExpirationService(OrderRepository orderRepository, OrderEventProducer eventProducer) {
+    public OrderExpirationService(OrderRepository orderRepository, OrderEventProducer orderEventProducer) {
         this.orderRepository = orderRepository;
-        this.eventProducer = eventProducer;
+        this.orderEventProducer = orderEventProducer;
     }
 
-    @Scheduled(fixedDelay = 60_000)
+    @Scheduled(fixedDelay = 60, timeUnit = TimeUnit.SECONDS)
     @Transactional
-    public void cancelExpiredOrders() {
-        List<Order> expired = orderRepository.findExpiredPendingOrders(Instant.now());
-        for (Order order : expired) {
-            order.setStatus(OrderStatus.CANCELLED);
-            orderRepository.save(order);
-            eventProducer.publishOrderCancelled(order.getId(), order.getCustomerId(), "EXPIRATION");
-            log.info("Cancelled expired order orderId={}", order.getId());
+    public void expireStaleOrders() {
+        var expiredOrders = orderRepository
+                .findByStatusAndExpiresAtBefore(OrderStatus.PENDING, Instant.now());
+
+        if (expiredOrders.isEmpty()) {
+            return;
         }
-        if (!expired.isEmpty()) {
-            log.info("Expired order sweep completed: {} order(s) cancelled", expired.size());
+
+        log.info("Expiring {} stale order(s)", expiredOrders.size());
+        var now = Instant.now();
+        for (var order : expiredOrders) {
+            order.setStatus(OrderStatus.CANCELLED);
+            order.setUpdatedAt(now);
+            order.setExpiresAt(null);
+            orderRepository.save(order);
+
+            var event = new OrderCancelledEvent(
+                    order.getId(), order.getCustomerId(), null, order.getMerchantId(),
+                    order.getTotalInCents(), "Order expired after 15 minutes", now
+            );
+            orderEventProducer.publishOrderCancelled(event);
+
+            log.info("Order {} expired and set to CANCELLED", order.getId());
         }
     }
 }

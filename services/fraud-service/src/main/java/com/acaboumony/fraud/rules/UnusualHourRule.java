@@ -1,32 +1,46 @@
 package com.acaboumony.fraud.rules;
 
 import com.acaboumony.fraud.dto.request.FraudAnalysisRequest;
-import org.springframework.stereotype.Component;
+import org.springframework.data.redis.core.StringRedisTemplate;
 
-import java.time.Instant;
-import java.time.ZoneOffset;
+import java.time.Clock;
+import java.time.LocalTime;
 
-/**
- * Fires when the transaction occurs between 02:00 and 05:59 UTC
- * AND the amount exceeds R$ 300,00 (30 000 cents).
- * Adds 10 risk points.
- */
-@Component
 public class UnusualHourRule implements FraudRule {
 
-    private static final int UNUSUAL_HOUR_START = 2;
-    private static final int UNUSUAL_HOUR_END   = 5;
-    private static final long MIN_AMOUNT_CENTS  = 30_000L;
+    static final long MIN_AMOUNT = 30_001L;
+    static final int UNUSUAL_START = 2;
+    static final int UNUSUAL_END = 5;
 
-    @Override
-    public int evaluate(FraudAnalysisRequest request, FraudRuleContext context) {
-        int hourUtc = Instant.now().atZone(ZoneOffset.UTC).getHour();
-        boolean isUnusualHour = hourUtc >= UNUSUAL_HOUR_START && hourUtc <= UNUSUAL_HOUR_END;
-        return isUnusualHour && request.amountInCents() > MIN_AMOUNT_CENTS ? 10 : 0;
+    private final Clock clock;
+
+    public UnusualHourRule() {
+        this.clock = Clock.systemUTC();
+    }
+
+    public UnusualHourRule(Clock clock) {
+        this.clock = clock;
     }
 
     @Override
-    public String getRuleId() {
+    public int evaluate(FraudAnalysisRequest request, StringRedisTemplate redis) {
+        return evaluate(request, redis, clock);
+    }
+
+    int evaluate(FraudAnalysisRequest request, StringRedisTemplate redis, Clock clock) {
+        LocalTime now = LocalTime.now(clock);
+        int hour = now.getHour();
+        boolean unusualHour = hour >= UNUSUAL_START && hour < UNUSUAL_END;
+        return unusualHour && request.amountInCents() >= MIN_AMOUNT ? 10 : 0;
+    }
+
+    @Override
+    public String getReason() {
         return "UNUSUAL_HOUR";
+    }
+
+    @Override
+    public int getScore() {
+        return 10;
     }
 }

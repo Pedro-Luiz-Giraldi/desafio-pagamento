@@ -1,11 +1,7 @@
 package com.acaboumony.payment.domain.entity;
 
 import com.acaboumony.payment.domain.enums.RefundReason;
-import com.acaboumony.payment.domain.enums.RefundStatus;
 import jakarta.persistence.*;
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.type.SqlTypes;
-
 import java.time.Instant;
 import java.util.UUID;
 
@@ -14,76 +10,78 @@ import java.util.UUID;
 public class Refund {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
-    private UUID id;
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
-    @Column(nullable = false)
+    @Column(name = "refund_id", nullable = false, unique = true, length = 64)
+    private String refundId;
+
+    @Column(name = "transaction_id", nullable = false, length = 64)
     private String transactionId;
 
-    @Column(nullable = false)
+    @Column(name = "amount_in_cents", nullable = false)
     private Long amountInCents;
 
+    @Column(name = "is_full_refund", nullable = false)
+    private Boolean isFullRefund;
+
     @Enumerated(EnumType.STRING)
-    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
-    @Column(nullable = false)
+    @Column(name = "reason", nullable = false, length = 64)
     private RefundReason reason;
 
-    @Enumerated(EnumType.STRING)
-    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
-    @Column(nullable = false)
-    private RefundStatus status;
-
-    @Column(nullable = false)
+    @Column(name = "requested_by", nullable = false)
     private UUID requestedBy;
 
-    private Long mpRefundId;
-
-    @Column(nullable = false, unique = true)
+    @Column(name = "idempotency_key", nullable = false, unique = true)
     private UUID idempotencyKey;
 
-    @Column(nullable = false)
+    @Column(name = "status", nullable = false, length = 32)
+    private String status;
+
+    @Column(name = "estimated_arrival_days")
+    private Integer estimatedArrivalDays;
+
+    @Column(name = "processed_at", nullable = false)
+    private Instant processedAt;
+
+    @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
-    @Column(nullable = false)
-    private Instant updatedAt;
-
     @PrePersist
-    void prePersist() {
-        createdAt = updatedAt = Instant.now();
+    protected void onCreate() {
+        createdAt = Instant.now();
+        if (processedAt == null) processedAt = Instant.now();
     }
 
-    @PreUpdate
-    void preUpdate() {
-        updatedAt = Instant.now();
+    public Refund() {}
+
+    public Refund(String refundId, String transactionId, Long amountInCents,
+                  Boolean isFullRefund, RefundReason reason, UUID requestedBy,
+                  UUID idempotencyKey, String status) {
+        this.refundId = refundId;
+        this.transactionId = transactionId;
+        this.amountInCents = amountInCents;
+        this.isFullRefund = isFullRefund;
+        this.reason = reason;
+        this.requestedBy = requestedBy;
+        this.idempotencyKey = idempotencyKey;
+        this.status = status;
     }
 
-    public UUID getId() { return id; }
-    public void setId(UUID id) { this.id = id; }
-
+    public Long getId() { return id; }
+    public String getRefundId() { return refundId; }
     public String getTransactionId() { return transactionId; }
-    public void setTransactionId(String transactionId) { this.transactionId = transactionId; }
-
     public Long getAmountInCents() { return amountInCents; }
-    public void setAmountInCents(Long amountInCents) { this.amountInCents = amountInCents; }
-
+    public Boolean getIsFullRefund() { return isFullRefund; }
     public RefundReason getReason() { return reason; }
-    public void setReason(RefundReason reason) { this.reason = reason; }
-
-    public RefundStatus getStatus() { return status; }
-    public void setStatus(RefundStatus status) { this.status = status; }
-
     public UUID getRequestedBy() { return requestedBy; }
-    public void setRequestedBy(UUID requestedBy) { this.requestedBy = requestedBy; }
-
-    public Long getMpRefundId() { return mpRefundId; }
-    public void setMpRefundId(Long mpRefundId) { this.mpRefundId = mpRefundId; }
-
     public UUID getIdempotencyKey() { return idempotencyKey; }
-    public void setIdempotencyKey(UUID idempotencyKey) { this.idempotencyKey = idempotencyKey; }
-
+    public String getStatus() { return status; }
+    public Integer getEstimatedArrivalDays() { return estimatedArrivalDays; }
+    public Instant getProcessedAt() { return processedAt; }
     public Instant getCreatedAt() { return createdAt; }
-    public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
 
-    public Instant getUpdatedAt() { return updatedAt; }
-    public void setUpdatedAt(Instant updatedAt) { this.updatedAt = updatedAt; }
+    public void setStatus(String status) { this.status = status; }
+    public void setEstimatedArrivalDays(Integer estimatedArrivalDays) { this.estimatedArrivalDays = estimatedArrivalDays; }
+    public void setProcessedAt(Instant processedAt) { this.processedAt = processedAt; }
 }

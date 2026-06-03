@@ -3,146 +3,218 @@ package com.acaboumony.fraud.service;
 import com.acaboumony.fraud.domain.entity.FraudAlert;
 import com.acaboumony.fraud.domain.enums.FraudDecision;
 import com.acaboumony.fraud.dto.request.FraudAnalysisRequest;
-import com.acaboumony.fraud.dto.response.FraudScoreResponse;
+import com.acaboumony.fraud.dto.response.FraudScore;
+import com.acaboumony.fraud.event.FraudEventProducer;
 import com.acaboumony.fraud.repository.FraudAlertRepository;
-import com.acaboumony.fraud.rules.FraudRule;
-import com.acaboumony.fraud.rules.FraudRuleContext;
+import com.acaboumony.fraud.repository.IpBlacklistRepository;
+import com.acaboumony.fraud.result.FraudResult;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
-import java.util.ArrayList;
-import java.util.Collections;
+import java.time.Instant;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 
-/**
- * Core fraud detection engine.
- *
- * <p>Evaluates all registered {@link FraudRule} instances against the incoming request,
- * persists BLOCK/REVIEW outcomes, publishes Kafka events for BLOCKed transactions,
- * and increments the velocity counter after every analysis.</p>
- *
- * <p>Score capping: total score is clamped to 100 regardless of how many rules fire.</p>
- */
 @Service
 public class FraudDetectionService {
 
     private static final Logger log = LoggerFactory.getLogger(FraudDetectionService.class);
 
-    private final List<FraudRule> rules;
-    private final VelocityTrackingService velocityTrackingService;
-    private final FraudAlertRepository fraudAlertRepository;
-    private final FraudEventProducer eventProducer;
+    static final int FALLBACK_SCORE = 50;
 
-    public FraudDetectionService(List<FraudRule> rules,
-                                  VelocityTrackingService velocityTrackingService,
-                                  FraudAlertRepository fraudAlertRepository,
-                                  FraudEventProducer eventProducer) {
-        this.rules = rules;
-        this.velocityTrackingService = velocityTrackingService;
-        this.fraudAlertRepository = fraudAlertRepository;
+    private final int blockThreshold;
+    private final int reviewThreshold;
+    private final long analysisTimeoutMs;
+    private final long ipBlacklistTtlHours;
+    private final int ipBlacklistMinScore;
+    private final long velocityTtlMinutes;
+
+    private final RuleEngineService ruleEngine;
+    private final ClaudeContextAnalyzer claudeAnalyzer;
+    private final FraudAlertRepository alertRepository;
+    private final IpBlacklistRepository ipBlacklistRepository;
+    private final StringRedisTemplate redis;
+    private final FraudEventProducer eventProducer;
+    private final Counter approveCounter;
+    private final Counter reviewCounter;
+    private final Counter blockCounter;
+    private final Timer analysisTimer;
+
+    public FraudDetectionService(RuleEngineService ruleEngine,
+                                 ClaudeContextAnalyzer claudeAnalyzer,
+                                 FraudAlertRepository alertRepository,
+                                 IpBlacklistRepository ipBlacklistRepository,
+                                  StringRedisTemplate redis,
+                                  FraudEventProducer eventProducer,
+                                  MeterRegistry meterRegistry,
+                                  @Value("${fraud.block-threshold:90}") int blockThreshold,
+                                  @Value("${fraud.review-threshold:70}") int reviewThreshold,
+                                  @Value("${fraud.analysis-timeout-ms:250}") long analysisTimeoutMs,
+                                  @Value("${fraud.ip-blacklist-ttl-hours:24}") long ipBlacklistTtlHours,
+                                  @Value("${fraud.ip-blacklist-min-score:30}") int ipBlacklistMinScore,
+                                  @Value("${fraud.velocity-ttl-minutes:5}") long velocityTtlMinutes) {
+        this.ruleEngine = ruleEngine;
+        this.claudeAnalyzer = claudeAnalyzer;
+        this.alertRepository = alertRepository;
+        this.ipBlacklistRepository = ipBlacklistRepository;
+        this.redis = redis;
         this.eventProducer = eventProducer;
+        this.blockThreshold = blockThreshold;
+        this.reviewThreshold = reviewThreshold;
+        this.analysisTimeoutMs = analysisTimeoutMs;
+        this.ipBlacklistTtlHours = ipBlacklistTtlHours;
+        this.ipBlacklistMinScore = ipBlacklistMinScore;
+        this.velocityTtlMinutes = velocityTtlMinutes;
+        this.approveCounter = Counter.builder("fraud.decision.approve")
+            .description("Approved by fraud analysis").register(meterRegistry);
+        this.reviewCounter = Counter.builder("fraud.decision.review")
+            .description("Marked for review").register(meterRegistry);
+        this.blockCounter = Counter.builder("fraud.decision.block")
+            .description("Blocked by fraud analysis").register(meterRegistry);
+        this.analysisTimer = Timer.builder("fraud.analysis.time")
+            .description("Fraud analysis duration").register(meterRegistry);
     }
 
-    /**
-     * Analyses a transaction for fraud risk deterministically.
-     *
-     * @param request incoming request from the payment-service internal API
-     * @return the fraud score, decision, fired rule IDs, and analysis time
-     */
-    public FraudScoreResponse analyzeTransaction(FraudAnalysisRequest request) {
-        long startTime = System.currentTimeMillis();
+    public FraudScore score(FraudAnalysisRequest request) {
+        Instant start = Instant.now();
 
-        // 1. Build context from Redis
-        FraudRuleContext context = buildContext(request);
+        try {
+            recordVelocity(request);
+        } catch (Exception e) {
+            log.warn("Redis velocity recording failed for transaction {}: {}", request.transactionId(), e.getMessage());
+        }
 
-        // 2. Apply all rules
-        int totalScore = 0;
-        List<String> reasons = new ArrayList<>();
-        for (FraudRule rule : rules) {
-            int points = rule.evaluate(request, context);
-            if (points > 0) {
-                totalScore += points;
-                reasons.add(rule.getRuleId());
+        RuleEngineService.ScoreResult base = ruleEngine.calculateBaseScore(request);
+        int finalScore = base.score();
+        List<String> reasons = base.reasons();
+        int claudeAdjustment = 0;
+        String claudeReasoning = null;
+
+        if (finalScore >= reviewThreshold && finalScore < blockThreshold) {
+            try {
+                int scoreAtClaudeCall = finalScore;
+                var adjustmentResult = CompletableFuture
+                    .supplyAsync(() -> claudeAnalyzer.adjustWithReasoning(request, scoreAtClaudeCall))
+                    .orTimeout(analysisTimeoutMs, TimeUnit.MILLISECONDS)
+                    .exceptionally(ex -> new ClaudeContextAnalyzer.AdjustmentResult(0, null))
+                    .get();
+                claudeAdjustment = adjustmentResult.adjustment();
+                claudeReasoning = adjustmentResult.reasoning();
+                finalScore = Math.clamp(finalScore + claudeAdjustment, 0, 100);
+            } catch (Exception e) {
+                log.warn("Claude analysis timed out or failed for transaction {}: {}", request.transactionId(), e.getMessage());
+                claudeAdjustment = 0;
+                claudeReasoning = null;
             }
         }
-        totalScore = Math.min(totalScore, 100);
 
-        // 3. Determine decision by threshold
-        FraudDecision decision;
-        if (totalScore >= 90) {
-            decision = FraudDecision.BLOCK;
-        } else if (totalScore >= 70) {
-            decision = FraudDecision.REVIEW;
-        } else {
-            decision = FraudDecision.APPROVE;
+        if (reasons.contains("IP_BLACKLISTED")) {
+            finalScore = Math.max(finalScore, ipBlacklistMinScore);
         }
 
-        long analysisTimeMs = System.currentTimeMillis() - startTime;
+        Duration analysisTime = Duration.between(start, Instant.now());
 
-        log.info("Fraud analysis: transactionId={} customerId={} score={} decision={} analysisTimeMs={}",
-                request.transactionId(), request.customerId(), totalScore, decision, analysisTimeMs);
-
-        // 4. Persist FraudAlert for BLOCK or REVIEW decisions
-        if (decision == FraudDecision.BLOCK || decision == FraudDecision.REVIEW) {
-            saveFraudAlert(request, totalScore, decision, reasons, analysisTimeMs);
+        if (analysisTime.toMillis() > analysisTimeoutMs) {
+            log.warn("Analysis timeout for transaction {}: {}ms", request.transactionId(), analysisTime.toMillis());
+            return new FraudScore(FALLBACK_SCORE, "APPROVE",
+                List.of("TIMEOUT_FALLBACK"), analysisTime.toMillis());
         }
 
-        // 5. Publish Kafka event and auto-blacklist IP on BLOCK
+        FraudDecision decision = finalScore >= blockThreshold
+            ? FraudDecision.BLOCK
+            : finalScore >= reviewThreshold
+                ? FraudDecision.REVIEW
+                : FraudDecision.APPROVE;
+
         if (decision == FraudDecision.BLOCK) {
-            eventProducer.publishFraudDetected(
-                    request.transactionId(), request.customerId(), totalScore, reasons);
-            velocityTrackingService.addToBlacklist(request.ipAddress(), Duration.ofHours(24));
+            try {
+                autoBlacklistIp(request);
+            } catch (Exception e) {
+                log.warn("Redis IP blacklist failed for transaction {}: {}", request.transactionId(), e.getMessage());
+            }
         }
 
-        // 6. Increment velocity counter (always, regardless of decision)
-        velocityTrackingService.incrementVelocityCounter(request.customerId());
+        if (decision == FraudDecision.BLOCK || decision == FraudDecision.REVIEW) {
+            String anonymizedIp = anonymizeIp(request.ipAddress());
+            FraudAlert alert = FraudAlert.builder()
+                .transactionId(request.transactionId())
+                .customerId(request.customerId())
+                .score(finalScore)
+                .decision(decision)
+                .reasons(reasons)
+                .claudeAdjustment(claudeAdjustment == 0 ? null : claudeAdjustment)
+                .claudeReasoning(claudeReasoning)
+                .build();
+            alertRepository.save(alert);
+            log.info("Fraud alert for transaction {} (ip={}): score={}, decision={}",
+                request.transactionId(), anonymizedIp, finalScore, decision);
+        }
 
-        return new FraudScoreResponse(
-                totalScore,
-                decision.name(),
-                Collections.unmodifiableList(reasons),
-                analysisTimeMs);
+        var scoreResult = new FraudScore(finalScore, decision.name(), reasons, analysisTime.toMillis());
+
+        analysisTimer.record(analysisTime);
+        switch (decision) {
+            case APPROVE -> approveCounter.increment();
+            case REVIEW -> reviewCounter.increment();
+            case BLOCK -> blockCounter.increment();
+        }
+
+        switch (decision) {
+            case BLOCK -> eventProducer.publishBlockEvent(request, scoreResult);
+            case REVIEW -> eventProducer.publishReviewEvent(request, scoreResult);
+        }
+
+        FraudResult result = switch (decision) {
+            case APPROVE -> new FraudResult.Approved(finalScore, reasons, analysisTime);
+            case REVIEW -> new FraudResult.UnderReview(finalScore, reasons, analysisTime);
+            case BLOCK -> new FraudResult.Blocked(finalScore, reasons, analysisTime);
+        };
+
+        return result.toScore();
     }
 
-    // --- Private helpers ---
+    private void recordVelocity(FraudAnalysisRequest request) {
+        String customerKey = "fraud:velocity:" + request.customerId();
+        redis.opsForZSet().add(customerKey, request.transactionId(), (double) System.currentTimeMillis());
+        redis.expire(customerKey, velocityTtlMinutes, TimeUnit.MINUTES);
 
-    private FraudRuleContext buildContext(FraudAnalysisRequest request) {
-        long velocityCount = velocityTrackingService.getVelocityCount(request.customerId());
-        boolean ipBlacklisted = velocityTrackingService.isIpBlacklisted(request.ipAddress());
-
-        // isFirstPurchase: velocity was 0 before this transaction
-        boolean isFirstPurchase = velocityCount == 0;
-
-        // averageAmountLast30DaysInCents: 0 for now (future: load from analytics service)
-        // devicesLinkedToCardHash: 0 for now (future: load from device store)
-        return new FraudRuleContext(
-                velocityCount,
-                0L,
-                ipBlacklisted,
-                0L,
-                isFirstPurchase
-        );
+        String merchantKey = "fraud:merchant_velocity:" + request.merchantId();
+        redis.opsForZSet().add(merchantKey, request.transactionId(), (double) System.currentTimeMillis());
+        redis.expire(merchantKey, velocityTtlMinutes, TimeUnit.MINUTES);
     }
 
-    private void saveFraudAlert(FraudAnalysisRequest request,
-                                 int score,
-                                 FraudDecision decision,
-                                 List<String> reasons,
-                                 long analysisTimeMs) {
-        String reasonsCsv = reasons.isEmpty() ? null : String.join(",", reasons);
-        FraudAlert alert = new FraudAlert(
-                request.transactionId(),
-                request.customerId(),
-                request.amountInCents(),
-                score,
-                decision,
-                reasonsCsv,
-                analysisTimeMs,
-                request.ipAddress()
-        );
-        fraudAlertRepository.save(alert);
-        log.info("Persisted FraudAlert: transactionId={} decision={}", request.transactionId(), decision);
+    private void autoBlacklistIp(FraudAnalysisRequest request) {
+        String anonymizedIp = anonymizeIp(request.ipAddress());
+        String key = "fraud:ip_blacklist:" + request.ipAddress();
+        redis.opsForSet().add(key, request.ipAddress());
+        redis.expire(key, ipBlacklistTtlHours, TimeUnit.HOURS);
+        try {
+            if (ipBlacklistRepository.findByIpAddress(request.ipAddress()).isEmpty()) {
+                var entry = com.acaboumony.fraud.domain.entity.IpBlacklist.builder()
+                    .ipAddress(request.ipAddress())
+                    .reason("AUTO_BLACKLIST - score=" + request)
+                    .source(com.acaboumony.fraud.domain.enums.BlacklistSource.AUTOMATIC)
+                    .expiresAt(java.time.OffsetDateTime.now().plusHours(ipBlacklistTtlHours))
+                    .build();
+                ipBlacklistRepository.save(entry);
+            }
+        } catch (Exception e) {
+            log.warn("Failed to persist IP blacklist entry for {}: {}", anonymizedIp, e.getMessage());
+        }
+    }
+
+    static String anonymizeIp(String ip) {
+        if (ip == null) return null;
+        int lastDot = ip.lastIndexOf('.');
+        if (lastDot < 0) return ip;
+        return ip.substring(0, lastDot + 1) + "0";
     }
 }

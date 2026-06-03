@@ -1,26 +1,26 @@
 package com.acaboumony.order.controller;
 
+import com.acaboumony.order.dto.ApiResponse;
 import com.acaboumony.order.dto.request.CreateOrderRequest;
 import com.acaboumony.order.dto.response.OrderDetailResponse;
 import com.acaboumony.order.dto.response.OrderResponse;
+import com.acaboumony.order.dto.response.PagedResponse;
 import com.acaboumony.order.service.OrderService;
 import jakarta.validation.Valid;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.UUID;
 
-/**
- * REST controller for order management (customer-facing endpoints).
- *
- * <p>No authentication is enforced here — the api-gateway injects trusted headers
- * ({@code X-User-Id}, {@code X-User-Role}, {@code X-Merchant-Id}) after verifying the JWT.
- * This service only processes the headers it receives.</p>
- */
 @RestController
 @RequestMapping("/api/v1/orders")
 public class OrderController {
@@ -31,63 +31,56 @@ public class OrderController {
         this.orderService = orderService;
     }
 
-    /**
-     * Creates a new order.
-     *
-     * <p>Returns HTTP 201 on creation. Returns HTTP 200 when the idempotency key was already
-     * processed (safe retry).</p>
-     */
     @PostMapping
-    public ResponseEntity<OrderResponse> createOrder(
-            @Valid @RequestBody CreateOrderRequest request,
-            @RequestHeader("X-User-Id") UUID userId,
-            @RequestHeader("X-User-Role") String userRole) {
+    public ResponseEntity<ApiResponse<OrderResponse>> createOrder(
+            @RequestHeader("X-User-Id") UUID customerId,
+            @RequestHeader("X-User-Email") String customerEmail,
+            @RequestHeader("Idempotency-Key") UUID idempotencyKey,
+            @Valid @RequestBody CreateOrderRequest request) {
 
-        boolean isIdempotencyHit = orderService.hasExistingOrder(request.idempotencyKey());
-        OrderResponse response = orderService.createOrder(request, userId);
-        return isIdempotencyHit
-                ? ResponseEntity.ok(response)
-                : ResponseEntity.status(HttpStatus.CREATED).body(response);
+        var result = orderService.createOrder(customerId, customerEmail, idempotencyKey, request);
+
+        return switch (result) {
+            case OrderService.CreateOrderResult.Success(var order, var created) ->
+                    ResponseEntity.status(created ? HttpStatus.CREATED : HttpStatus.OK)
+                            .body(ApiResponse.success(order));
+            case OrderService.CreateOrderResult.Duplicate(var existingOrder) ->
+                    ResponseEntity.ok(ApiResponse.success(existingOrder));
+        };
     }
 
-    /**
-     * Retrieves a single order by ID with authorization enforcement.
-     */
     @GetMapping("/{orderId}")
-    public ResponseEntity<OrderDetailResponse> getOrder(
+    public ResponseEntity<ApiResponse<OrderDetailResponse>> getOrder(
             @PathVariable UUID orderId,
             @RequestHeader("X-User-Id") UUID userId,
-            @RequestHeader("X-User-Role") String userRole,
+            @RequestHeader(value = "X-User-Roles", defaultValue = "CUSTOMER") String role,
             @RequestHeader(value = "X-Merchant-Id", required = false) UUID merchantId) {
 
-        OrderDetailResponse response = orderService.getOrder(orderId, userId, userRole, merchantId);
-        return ResponseEntity.ok(response);
+        var order = orderService.getOrder(orderId, userId, role, merchantId);
+        return ResponseEntity.ok(ApiResponse.success(order));
     }
 
-    /**
-     * Lists orders for the authenticated user with pagination.
-     */
     @GetMapping
-    public ResponseEntity<Page<OrderDetailResponse>> listOrders(
+    public ResponseEntity<ApiResponse<PagedResponse<OrderResponse>>> listOrders(
             @RequestHeader("X-User-Id") UUID userId,
-            @RequestHeader("X-User-Role") String userRole,
+            @RequestHeader(value = "X-User-Roles", defaultValue = "CUSTOMER") String role,
             @RequestHeader(value = "X-Merchant-Id", required = false) UUID merchantId,
-            @PageableDefault(size = 20, sort = "createdAt") Pageable pageable) {
+            @RequestParam(required = false) String status,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
 
-        Page<OrderDetailResponse> page = orderService.listOrders(userId, userRole, merchantId, pageable);
-        return ResponseEntity.ok(page);
+        var result = orderService.listOrders(userId, role, merchantId, status, page, size);
+        return ResponseEntity.ok(ApiResponse.success(result));
     }
 
-    /**
-     * Cancels a PENDING order.
-     */
     @DeleteMapping("/{orderId}")
     public ResponseEntity<Void> cancelOrder(
             @PathVariable UUID orderId,
             @RequestHeader("X-User-Id") UUID userId,
-            @RequestHeader("X-User-Role") String userRole) {
+            @RequestHeader(value = "X-User-Roles", defaultValue = "CUSTOMER") String role,
+            @RequestHeader(value = "X-Merchant-Id", required = false) UUID merchantId) {
 
-        orderService.cancelOrder(orderId, userId, userRole);
+        orderService.cancelOrder(orderId, userId, role, merchantId);
         return ResponseEntity.noContent().build();
     }
 }

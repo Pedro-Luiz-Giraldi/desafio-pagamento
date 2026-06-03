@@ -14,36 +14,47 @@ spring:
   flyway:
     enabled: true
     locations: classpath:db/migration
-  data:
-    redis:
-      timeout: 2000ms
-      lettuce:
-        pool:
-          max-active: 10
-          min-idle: 2
   kafka:
     bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:9094}
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
       properties:
-        spring.json.add.type.headers: false
-  datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/fraud_db}
-    username: ${SPRING_DATASOURCE_USERNAME:aom}
-    password: ${SPRING_DATASOURCE_PASSWORD:aom}
+        enable.idempotence: true
 
 server:
   port: 8085
 
-internal:
-  secret: ${INTERNAL_SECRET:dev-internal-secret}
+anthropic:
+  api-key: ${ANTHROPIC_API_KEY:}
+
+fraud:
+  block-threshold: ${FRAUD_BLOCK_THRESHOLD:90}
+  review-threshold: ${FRAUD_REVIEW_THRESHOLD:70}
+  analysis-timeout-ms: ${FRAUD_ANALYSIS_TIMEOUT_MS:250}
+  ip-blacklist-ttl-hours: ${FRAUD_IP_BLACKLIST_TTL_HOURS:24}
+  ip-blacklist-min-score: ${FRAUD_IP_BLACKLIST_MIN_SCORE:30}
+  velocity-ttl-minutes: ${FRAUD_VELOCITY_TTL_MINUTES:5}
+
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        sliding-window-size: 10
+        minimum-number-of-calls: 5
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 30s
+        permitted-number-of-calls-in-half-open-state: 3
+        automatic-transition-from-open-to-half-open-enabled: true
+    instances:
+      claudeApi:
+        base-config: default
 
 management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics
+        include: health,info,metrics,circuitbreakers
   endpoint:
     health:
       show-details: always

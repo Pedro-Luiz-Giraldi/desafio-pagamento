@@ -4,14 +4,20 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
-/**
- * Immutable DTO returned after creating or retrieving an order (customer-facing view).
- */
 public record OrderResponse(
         UUID orderId,
         String status,
-        long totalInCents,
-        List<OrderItemResponse> items,
+        Long totalInCents,
+        List<ItemResponse> items,
         Instant expiresAt,
         Instant createdAt
-) {}
+) {
+    public record ItemResponse(
+            String productId,
+            String description,
+            Integer quantity,
+            Long unitPriceInCents,
+            Long subtotalInCents
+    ) {
+    }
+}

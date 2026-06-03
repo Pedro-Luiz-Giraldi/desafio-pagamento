@@ -1,75 +1,100 @@
 package com.acaboumony.order.controller;
 
-import com.acaboumony.order.exception.OrderServiceException;
-import jakarta.servlet.http.HttpServletRequest;
+import com.acaboumony.order.dto.ApiResponse;
+import com.acaboumony.order.exception.InsufficientPermissionsException;
+import com.acaboumony.order.exception.OrderCannotBeCancelledException;
+import com.acaboumony.order.exception.OrderNotFoundException;
+import com.acaboumony.order.service.OrderService.EmptyOrderException;
+import com.acaboumony.order.service.OrderService.InvalidItemPriceException;
+import com.acaboumony.order.service.OrderService.InvalidQuantityException;
+import com.acaboumony.order.service.OrderService.OrderTotalExceedsLimitException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
-import org.springframework.validation.FieldError;
-import org.springframework.validation.ObjectError;
 
-import java.net.URI;
 import java.util.List;
-import java.util.Map;
 
-/**
- * Global exception handler that converts domain exceptions to RFC 7807 ProblemDetail responses.
- */
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    @ExceptionHandler(OrderServiceException.class)
-    public ResponseEntity<ProblemDetail> handleDomain(OrderServiceException ex, HttpServletRequest req) {
-        HttpStatus status = mapStatus(ex.getErrorCode());
-        ProblemDetail pd = ProblemDetail.forStatusAndDetail(status, ex.getMessage());
-        pd.setType(URI.create("about:blank"));
-        pd.setProperty("errorCode", ex.getErrorCode());
-        pd.setProperty("retryable", ex.isRetryable());
-        pd.setInstance(URI.create(req.getRequestURI()));
-        return ResponseEntity.status(status)
-                .header("Content-Type", "application/problem+json")
-                .body(pd);
+    private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
+    @ExceptionHandler(OrderNotFoundException.class)
+    public ResponseEntity<ApiResponse<Void>> handleNotFound(OrderNotFoundException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(ApiResponse.error(List.of(
+                        new ApiResponse.ErrorDetail("ORDER_NOT_FOUND", "Order not found", false)
+                )));
+    }
+
+    @ExceptionHandler(OrderCannotBeCancelledException.class)
+    public ResponseEntity<ApiResponse<Void>> handleCannotCancel(OrderCannotBeCancelledException ex) {
+        return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY)
+                .body(ApiResponse.error(List.of(
+                        new ApiResponse.ErrorDetail("ORDER_CANNOT_BE_CANCELLED",
+                                "Order cannot be cancelled in status " + ex.getStatus(), false)
+                )));
+    }
+
+    @ExceptionHandler(InsufficientPermissionsException.class)
+    public ResponseEntity<ApiResponse<Void>> handleForbidden(InsufficientPermissionsException ex) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(ApiResponse.error(List.of(
+                        new ApiResponse.ErrorDetail("INSUFFICIENT_PERMISSIONS", "Access denied", false)
+                )));
+    }
+
+    @ExceptionHandler(EmptyOrderException.class)
+    public ResponseEntity<ApiResponse<Void>> handleEmptyOrder(EmptyOrderException ex) {
+        return ResponseEntity.badRequest()
+                .body(ApiResponse.error(List.of(
+                        new ApiResponse.ErrorDetail("EMPTY_ORDER", ex.getMessage(), false)
+                )));
+    }
+
+    @ExceptionHandler(InvalidItemPriceException.class)
+    public ResponseEntity<ApiResponse<Void>> handleInvalidPrice(InvalidItemPriceException ex) {
+        return ResponseEntity.badRequest()
+                .body(ApiResponse.error(List.of(
+                        new ApiResponse.ErrorDetail("INVALID_ITEM_PRICE", "Invalid item price: " + ex.getPrice(), "unitPriceInCents", false)
+                )));
+    }
+
+    @ExceptionHandler(InvalidQuantityException.class)
+    public ResponseEntity<ApiResponse<Void>> handleInvalidQuantity(InvalidQuantityException ex) {
+        return ResponseEntity.badRequest()
+                .body(ApiResponse.error(List.of(
+                        new ApiResponse.ErrorDetail("INVALID_QUANTITY", "Invalid quantity: " + ex.getQuantity(), "quantity", false)
+                )));
+    }
+
+    @ExceptionHandler(OrderTotalExceedsLimitException.class)
+    public ResponseEntity<ApiResponse<Void>> handleTotalExceeds(OrderTotalExceedsLimitException ex) {
+        return ResponseEntity.badRequest()
+                .body(ApiResponse.error(List.of(
+                        new ApiResponse.ErrorDetail("TOTAL_EXCEEDS_LIMIT", "Order total exceeds limit", false)
+                )));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<ProblemDetail> handleValidation(MethodArgumentNotValidException ex,
-                                                           HttpServletRequest req) {
-        List<Map<String, String>> fieldErrors = ex.getBindingResult().getAllErrors().stream()
-                .map(err -> {
-                    if (err instanceof FieldError fe) {
-                        return Map.of("field", fe.getField(),
-                                "message", fe.getDefaultMessage() != null ? fe.getDefaultMessage() : "invalid");
-                    }
-                    return Map.of("object", err.getObjectName(),
-                            "message", err.getDefaultMessage() != null ? err.getDefaultMessage() : "invalid");
-                })
+    public ResponseEntity<ApiResponse<Void>> handleValidation(MethodArgumentNotValidException ex) {
+        var errors = ex.getBindingResult().getFieldErrors().stream()
+                .map(fe -> new ApiResponse.ErrorDetail("INVALID_FIELD", fe.getDefaultMessage(), fe.getField(), false))
                 .toList();
-
-        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, "Validation failed");
-        pd.setType(URI.create("about:blank"));
-        pd.setProperty("errorCode", "VALIDATION_FAILED");
-        pd.setProperty("fieldErrors", fieldErrors);
-        pd.setProperty("retryable", false);
-        pd.setInstance(URI.create(req.getRequestURI()));
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .header("Content-Type", "application/problem+json")
-                .body(pd);
+        return ResponseEntity.badRequest()
+                .body(ApiResponse.error(errors));
     }
 
-    private HttpStatus mapStatus(String errorCode) {
-        return switch (errorCode) {
-            case "DUPLICATE_ORDER" -> HttpStatus.CONFLICT;
-            case "ORDER_CANNOT_BE_CANCELLED" -> HttpStatus.UNPROCESSABLE_ENTITY;
-            case "INSUFFICIENT_PERMISSIONS" -> HttpStatus.FORBIDDEN;
-            case "ORDER_NOT_FOUND" -> HttpStatus.NOT_FOUND;
-            case "EMPTY_ORDER",
-                 "INVALID_ITEM_PRICE",
-                 "INVALID_QUANTITY",
-                 "TOTAL_EXCEEDS_LIMIT" -> HttpStatus.BAD_REQUEST;
-            default -> HttpStatus.INTERNAL_SERVER_ERROR;
-        };
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<ApiResponse<Void>> handleGeneral(Exception ex) {
+        log.error("Unhandled exception", ex);
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(ApiResponse.error(List.of(
+                        new ApiResponse.ErrorDetail("INTERNAL_ERROR", "An unexpected error occurred", true)
+                )));
     }
 }

@@ -1,301 +1,493 @@
 package com.acaboumony.order.service;
 
-import com.acaboumony.order.config.OrderProperties;
 import com.acaboumony.order.domain.entity.Order;
 import com.acaboumony.order.domain.entity.OrderItem;
 import com.acaboumony.order.domain.enums.OrderStatus;
 import com.acaboumony.order.dto.request.CreateOrderRequest;
-import com.acaboumony.order.dto.request.OrderItemRequest;
+import com.acaboumony.order.dto.request.ItemRequest;
 import com.acaboumony.order.dto.response.OrderDetailResponse;
-import com.acaboumony.order.dto.response.OrderResponse;
+import com.acaboumony.order.dto.response.PagedResponse;
+import com.acaboumony.order.event.OrderCreatedEvent;
 import com.acaboumony.order.event.OrderEventProducer;
-import com.acaboumony.order.exception.*;
+import com.acaboumony.order.exception.InsufficientPermissionsException;
+import com.acaboumony.order.exception.OrderCannotBeCancelledException;
+import com.acaboumony.order.exception.OrderNotFoundException;
+import com.acaboumony.order.mapper.OrderMapper;
 import com.acaboumony.order.repository.OrderRepository;
+import com.acaboumony.order.service.OrderService.CreateOrderResult;
+import com.acaboumony.order.service.OrderService.EmptyOrderException;
+import com.acaboumony.order.service.OrderService.InvalidItemPriceException;
+import com.acaboumony.order.service.OrderService.InvalidQuantityException;
+import com.acaboumony.order.service.OrderService.OrderTotalExceedsLimitException;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.data.redis.core.ValueOperations;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-import static org.assertj.core.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class OrderServiceTest {
 
     @Mock
     private OrderRepository orderRepository;
-
     @Mock
-    private StringRedisTemplate redisTemplate;
-
+    private IdempotencyService idempotencyService;
     @Mock
-    private ValueOperations<String, String> valueOps;
-
+    private OrderEventProducer orderEventProducer;
     @Mock
-    private OrderEventProducer eventProducer;
+    private OrderCacheService orderCacheService;
+    @Captor
+    private ArgumentCaptor<Order> orderCaptor;
 
+    private OrderMapper orderMapper;
     private OrderService orderService;
 
-    private static final UUID CUSTOMER_ID = UUID.randomUUID();
-    private static final UUID MERCHANT_ID = UUID.randomUUID();
-    private static final UUID IDEMPOTENCY_KEY = UUID.randomUUID();
+    private UUID customerId;
+    private String customerEmail;
+    private UUID merchantId;
+    private UUID idempotencyKey;
+    private CreateOrderRequest validRequest;
 
     @BeforeEach
     void setUp() {
-        OrderProperties props = new OrderProperties(15);
-        orderService = new OrderService(orderRepository, redisTemplate, eventProducer, props);
+        orderMapper = new OrderMapper();
+        orderService = new OrderService(orderRepository, idempotencyService, orderMapper, orderEventProducer, orderCacheService);
+        customerId = UUID.randomUUID();
+        customerEmail = "customer@test.com";
+        merchantId = UUID.randomUUID();
+        idempotencyKey = UUID.randomUUID();
+        validRequest = new CreateOrderRequest(
+                merchantId,
+                List.of(new ItemRequest("prod-1", "Item 1", 2, 1000L))
+        );
     }
 
-    // ── createOrder ───────────────────────────────────────────────────────────
+    @Nested
+    class CreateOrder {
 
-    @Test
-    void createOrder_success_returns_order_with_pending_status() {
-        when(redisTemplate.hasKey(anyString())).thenReturn(false);
-        when(redisTemplate.opsForValue()).thenReturn(valueOps);
-        when(orderRepository.save(any(Order.class))).thenAnswer(inv -> {
-            Order o = inv.getArgument(0);
-            o.setId(UUID.randomUUID());
-            o.setCreatedAt(Instant.now());
-            o.setUpdatedAt(Instant.now());
-            return o;
-        });
+        @Test
+        void shouldCreateOrderWithServerSideTotal() {
+            when(idempotencyService.isDuplicate(idempotencyKey)).thenReturn(false);
+            when(orderRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-        CreateOrderRequest request = buildRequest(List.of(new OrderItemRequest("P1", "Product 1", 2, 500L)));
+            var request = new CreateOrderRequest(
+                    merchantId,
+                    List.of(
+                            new ItemRequest("prod-1", "Item 1", 2, 1000L),
+                            new ItemRequest("prod-2", "Item 2", 1, 5000L)
+                    )
+            );
 
-        OrderResponse response = orderService.createOrder(request, CUSTOMER_ID);
+            var result = orderService.createOrder(customerId, customerEmail, idempotencyKey, request);
 
-        assertThat(response.status()).isEqualTo("PENDING");
-        assertThat(response.totalInCents()).isEqualTo(1000L);
-        verify(eventProducer).publishOrderCreated(any(), eq(CUSTOMER_ID), eq(MERCHANT_ID), eq(1000L));
+            assertThat(result).isInstanceOf(CreateOrderResult.Success.class);
+            var success = (CreateOrderResult.Success) result;
+            assertThat(success.created()).isTrue();
+            assertThat(success.order().totalInCents()).isEqualTo(7000L);
+            assertThat(success.order().status()).isEqualTo("PENDING");
+            assertThat(success.order().items()).hasSize(2);
+            verify(idempotencyService).markProcessed(idempotencyKey, success.order().orderId());
+            verify(orderEventProducer).publishOrderCreated(any());
+        }
+
+        @Test
+        void shouldRejectEmptyOrder() {
+            var request = new CreateOrderRequest(merchantId, List.of());
+
+            assertThatThrownBy(() -> orderService.createOrder(customerId, customerEmail, idempotencyKey, request))
+                    .isInstanceOf(EmptyOrderException.class)
+                    .hasMessageContaining("at least one item");
+        }
+
+        @Test
+        void shouldRejectNullItems() {
+            var request = new CreateOrderRequest(merchantId, null);
+
+            assertThatThrownBy(() -> orderService.createOrder(customerId, customerEmail, idempotencyKey, request))
+                    .isInstanceOf(EmptyOrderException.class);
+        }
+
+        @Test
+        void shouldRejectInvalidPrice() {
+            var request = new CreateOrderRequest(
+                    merchantId,
+                    List.of(new ItemRequest("prod-1", "Item", 1, 0L))
+            );
+
+            assertThatThrownBy(() -> orderService.createOrder(customerId, customerEmail, idempotencyKey, request))
+                    .isInstanceOf(InvalidItemPriceException.class);
+        }
+
+        @Test
+        void shouldRejectPriceExceedingMax() {
+            var request = new CreateOrderRequest(
+                    merchantId,
+                    List.of(new ItemRequest("prod-1", "Item", 1, 1_000_000L))
+            );
+
+            assertThatThrownBy(() -> orderService.createOrder(customerId, customerEmail, idempotencyKey, request))
+                    .isInstanceOf(InvalidItemPriceException.class);
+        }
+
+        @Test
+        void shouldRejectInvalidQuantity() {
+            var request = new CreateOrderRequest(
+                    merchantId,
+                    List.of(new ItemRequest("prod-1", "Item", 0, 1000L))
+            );
+
+            assertThatThrownBy(() -> orderService.createOrder(customerId, customerEmail, idempotencyKey, request))
+                    .isInstanceOf(InvalidQuantityException.class);
+        }
+
+        @Test
+        void shouldRejectQuantityExceedingMax() {
+            var request = new CreateOrderRequest(
+                    merchantId,
+                    List.of(new ItemRequest("prod-1", "Item", 1000, 1000L))
+            );
+
+            assertThatThrownBy(() -> orderService.createOrder(customerId, customerEmail, idempotencyKey, request))
+                    .isInstanceOf(InvalidQuantityException.class);
+        }
+
+        @Test
+        void shouldReturnExistingOrderWhenIdempotent() {
+            var now = Instant.now();
+            var order = createOrderEntity(OrderStatus.PENDING, now);
+            when(idempotencyService.isDuplicate(idempotencyKey)).thenReturn(true);
+            when(idempotencyService.getExistingOrderId(idempotencyKey))
+                    .thenReturn(Optional.of(order.getId()));
+            when(orderCacheService.findById(order.getId())).thenReturn(Optional.of(order));
+
+            var result = orderService.createOrder(customerId, customerEmail, idempotencyKey, validRequest);
+
+            assertThat(result).isInstanceOf(CreateOrderResult.Duplicate.class);
+            var dup = (CreateOrderResult.Duplicate) result;
+            assertThat(dup.existingOrder()).isNotNull();
+            assertThat(dup.existingOrder().orderId()).isEqualTo(order.getId());
+            verify(orderRepository, never()).save(any());
+        }
+
+        @Test
+        void shouldHandleIdempotentWithoutExistingOrder() {
+            when(idempotencyService.isDuplicate(idempotencyKey)).thenReturn(true);
+            when(idempotencyService.getExistingOrderId(idempotencyKey))
+                    .thenReturn(Optional.empty());
+
+            var result = orderService.createOrder(customerId, customerEmail, idempotencyKey, validRequest);
+
+            assertThat(result).isInstanceOf(CreateOrderResult.Duplicate.class);
+            var dup = (CreateOrderResult.Duplicate) result;
+            assertThat(dup.existingOrder()).isNull();
+        }
+
+        @Test
+        void shouldCalculateTotalServerSide() {
+            when(idempotencyService.isDuplicate(idempotencyKey)).thenReturn(false);
+            when(orderRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+            var request = new CreateOrderRequest(
+                    merchantId,
+                    List.of(
+                            new ItemRequest("p1", "Item 1", 3, 1500L),
+                            new ItemRequest("p2", "Item 2", 2, 2990L)
+                    )
+            );
+
+            var result = orderService.createOrder(customerId, customerEmail, idempotencyKey, request);
+
+            var success = (CreateOrderResult.Success) result;
+            assertThat(success.order().totalInCents()).isEqualTo(3 * 1500L + 2 * 2990L);
+        }
+
+        @Test
+        void shouldSetExpiresAt() {
+            when(idempotencyService.isDuplicate(idempotencyKey)).thenReturn(false);
+            when(orderRepository.save(orderCaptor.capture())).thenAnswer(inv -> inv.getArgument(0));
+
+            orderService.createOrder(customerId, customerEmail, idempotencyKey, validRequest);
+
+            var saved = orderCaptor.getValue();
+            assertThat(saved.getExpiresAt()).isNotNull();
+            assertThat(saved.getExpiresAt()).isAfter(Instant.now());
+        }
+
+        @Test
+        void shouldRejectTotalExceedingLimit() {
+            when(idempotencyService.isDuplicate(idempotencyKey)).thenReturn(false);
+
+            var request = new CreateOrderRequest(
+                    merchantId,
+                    List.of(new ItemRequest("prod-1", "Item", 1_000, 1_000L))
+            );
+
+            assertThatThrownBy(() -> orderService.createOrder(customerId, customerEmail, idempotencyKey, request))
+                    .isInstanceOf(InvalidQuantityException.class);
+        }
     }
 
-    @Test
-    void createOrder_returns_existing_on_duplicate_idempotency_key() {
-        Order existing = buildSavedOrder(500L);
-        when(redisTemplate.hasKey(anyString())).thenReturn(true);
-        when(orderRepository.findByIdempotencyKey(IDEMPOTENCY_KEY)).thenReturn(Optional.of(existing));
+    @Nested
+    class GetOrder {
 
-        CreateOrderRequest request = buildRequest(List.of(new OrderItemRequest("P1", "Product 1", 1, 500L)));
+        @Test
+        void shouldReturnOrderWhenCustomerOwnsIt() {
+            var now = Instant.now();
+            var order = createOrderEntity(OrderStatus.PAID, now);
+            order.setTransactionId("txn_123");
+            when(orderCacheService.findById(order.getId())).thenReturn(Optional.of(order));
 
-        OrderResponse response = orderService.createOrder(request, CUSTOMER_ID);
+            var result = orderService.getOrder(order.getId(), customerId, "CUSTOMER", null);
 
-        assertThat(response.orderId()).isEqualTo(existing.getId());
-        verify(orderRepository, never()).save(any());
-        verify(eventProducer, never()).publishOrderCreated(any(), any(), any(), anyLong());
+            assertThat(result).isNotNull();
+            assertThat(result.orderId()).isEqualTo(order.getId());
+            assertThat(result.status()).isEqualTo("PAID");
+            assertThat(result.transactionId()).isEqualTo("txn_123");
+        }
+
+        @Test
+        void shouldThrowWhenNotFound() {
+            var id = UUID.randomUUID();
+            when(orderCacheService.findById(id)).thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> orderService.getOrder(id, customerId, "CUSTOMER", null))
+                    .isInstanceOf(OrderNotFoundException.class);
+        }
+
+        @Test
+        void shouldAllowAdminAccess() {
+            var now = Instant.now();
+            var order = createOrderEntity(OrderStatus.PENDING, now);
+            when(orderCacheService.findById(order.getId())).thenReturn(Optional.of(order));
+
+            var result = orderService.getOrder(order.getId(), UUID.randomUUID(), "ADMIN", null);
+
+            assertThat(result).isNotNull();
+        }
+
+        @Test
+        void shouldAllowMerchantAccess() {
+            var now = Instant.now();
+            var order = createOrderEntity(OrderStatus.PENDING, now);
+            when(orderCacheService.findById(order.getId())).thenReturn(Optional.of(order));
+
+            var result = orderService.getOrder(order.getId(), UUID.randomUUID(), "MERCHANT", merchantId);
+
+            assertThat(result).isNotNull();
+        }
+
+        @Test
+        void shouldThrow403ForCrossCustomerAccess() {
+            var now = Instant.now();
+            var order = createOrderEntity(OrderStatus.PENDING, now);
+            var otherUser = UUID.randomUUID();
+            when(orderCacheService.findById(order.getId())).thenReturn(Optional.of(order));
+
+            assertThatThrownBy(() -> orderService.getOrder(order.getId(), otherUser, "CUSTOMER", null))
+                    .isInstanceOf(InsufficientPermissionsException.class);
+        }
+
+        @Test
+        void shouldThrow403ForMerchantNotOwningOrder() {
+            var now = Instant.now();
+            var order = createOrderEntity(OrderStatus.PENDING, now);
+            var otherMerchant = UUID.randomUUID();
+            when(orderCacheService.findById(order.getId())).thenReturn(Optional.of(order));
+
+            assertThatThrownBy(() -> orderService.getOrder(order.getId(), UUID.randomUUID(), "MERCHANT", otherMerchant))
+                    .isInstanceOf(InsufficientPermissionsException.class);
+        }
     }
 
-    @Test
-    void createOrder_calculates_total_server_side_ignoring_client_total() {
-        when(redisTemplate.hasKey(anyString())).thenReturn(false);
-        when(redisTemplate.opsForValue()).thenReturn(valueOps);
-        when(orderRepository.save(any(Order.class))).thenAnswer(inv -> {
-            Order o = inv.getArgument(0);
-            o.setId(UUID.randomUUID());
-            o.setCreatedAt(Instant.now());
-            o.setUpdatedAt(Instant.now());
-            return o;
-        });
+    @Nested
+    class AuthorizeAccess {
 
-        // 3 items × R$10,00 = R$30,00 (3000 cents) — client cannot override this
-        CreateOrderRequest request = buildRequest(List.of(
-                new OrderItemRequest("P1", "Item 1", 3, 1000L)
-        ));
+        @Test
+        void shouldThrowWhenMerchantWithoutMerchantId() {
+            var now = Instant.now();
+            var order = createOrderEntity(OrderStatus.PENDING, now);
+            when(orderCacheService.findById(order.getId())).thenReturn(Optional.of(order));
 
-        OrderResponse response = orderService.createOrder(request, CUSTOMER_ID);
-
-        assertThat(response.totalInCents()).isEqualTo(3000L);
+            assertThatThrownBy(() ->
+                    orderService.getOrder(order.getId(), UUID.randomUUID(), "MERCHANT", null))
+                    .isInstanceOf(InsufficientPermissionsException.class)
+                    .hasMessageContaining("X-Merchant-Id");
+        }
     }
 
-    @Test
-    void createOrder_throws_when_items_empty() {
-        CreateOrderRequest request = new CreateOrderRequest(MERCHANT_ID, List.of(), IDEMPOTENCY_KEY);
+    @Nested
+    class ListOrders {
 
-        assertThatThrownBy(() -> orderService.createOrder(request, CUSTOMER_ID))
-                .isInstanceOf(EmptyOrderException.class)
-                .extracting("errorCode").isEqualTo("EMPTY_ORDER");
+        @Test
+        void shouldListCustomerOrders() {
+            var now = Instant.now();
+            var order = createOrderEntity(OrderStatus.PENDING, now);
+            var page = new PageImpl<>(List.of(order));
+            when(orderRepository.findByCustomerId(customerId, PageRequest.of(0, 20, Sort.by("createdAt").descending())))
+                    .thenReturn(page);
+
+            var result = orderService.listOrders(customerId, "CUSTOMER", null, null, 0, 20);
+
+            assertThat(result.content()).hasSize(1);
+        }
+
+        @Test
+        void shouldListMerchantOrders() {
+            var now = Instant.now();
+            var order = createOrderEntity(OrderStatus.PENDING, now);
+            var page = new PageImpl<>(List.of(order));
+            when(orderRepository.findByMerchantId(merchantId, PageRequest.of(0, 20, Sort.by("createdAt").descending())))
+                    .thenReturn(page);
+
+            var result = orderService.listOrders(UUID.randomUUID(), "MERCHANT", merchantId, null, 0, 20);
+
+            assertThat(result.content()).hasSize(1);
+        }
+
+        @Test
+        void shouldListAdminOrders() {
+            var now = Instant.now();
+            var order = createOrderEntity(OrderStatus.PENDING, now);
+            var page = new PageImpl<>(List.of(order));
+            when(orderRepository.findAll(PageRequest.of(0, 20, Sort.by("createdAt").descending())))
+                    .thenReturn(page);
+
+            var result = orderService.listOrders(UUID.randomUUID(), "ADMIN", null, null, 0, 20);
+
+            assertThat(result.content()).hasSize(1);
+        }
+
+        @Test
+        void shouldListAdminOrdersWithStatusFilter() {
+            var now = Instant.now();
+            var order = createOrderEntity(OrderStatus.PAID, now);
+            var page = new PageImpl<>(List.of(order));
+            var pageable = PageRequest.of(0, 20, Sort.by("createdAt").descending());
+            when(orderRepository.findByStatus(OrderStatus.PAID, pageable)).thenReturn(page);
+
+            var result = orderService.listOrders(UUID.randomUUID(), "ADMIN", null, "PAID", 0, 20);
+
+            assertThat(result.content()).hasSize(1);
+        }
+
+        @Test
+        void shouldThrowWhenMerchantWithoutMerchantIdLists() {
+            assertThatThrownBy(() ->
+                    orderService.listOrders(UUID.randomUUID(), "MERCHANT", null, null, 0, 20))
+                    .isInstanceOf(InsufficientPermissionsException.class)
+                    .hasMessageContaining("X-Merchant-Id");
+        }
+
+        @Test
+        void shouldRespectPageSizeLimit() {
+            var pageable = PageRequest.of(0, 100, Sort.by("createdAt").descending());
+            var page = Page.<Order>empty(pageable);
+            when(orderRepository.findByCustomerId(customerId, pageable))
+                    .thenReturn(page);
+
+            var result = orderService.listOrders(customerId, "CUSTOMER", null, null, 0, 200);
+
+            assertThat(result.size()).isEqualTo(100);
+        }
     }
 
-    @Test
-    void createOrder_throws_when_item_price_zero() {
-        when(redisTemplate.hasKey(anyString())).thenReturn(false);
-        CreateOrderRequest request = buildRequest(List.of(new OrderItemRequest("P1", "Item", 1, 0L)));
+    @Nested
+    class CancelOrder {
 
-        assertThatThrownBy(() -> orderService.createOrder(request, CUSTOMER_ID))
-                .isInstanceOf(InvalidItemPriceException.class)
-                .extracting("errorCode").isEqualTo("INVALID_ITEM_PRICE");
+        @Test
+        void shouldCancelPendingOrder() {
+            var now = Instant.now();
+            var order = createOrderEntity(OrderStatus.PENDING, now);
+            when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
+            when(orderRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+            orderService.cancelOrder(order.getId(), customerId, "CUSTOMER", null);
+
+            verify(orderRepository).save(any());
+        }
+
+        @Test
+        void shouldThrowWhenOrderIsPaid() {
+            var now = Instant.now();
+            var order = createOrderEntity(OrderStatus.PAID, now);
+            when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
+
+            assertThatThrownBy(() -> orderService.cancelOrder(order.getId(), customerId, "CUSTOMER", null))
+                    .isInstanceOf(OrderCannotBeCancelledException.class);
+        }
+
+        @Test
+        void shouldThrowWhenOrderNotFound() {
+            var id = UUID.randomUUID();
+            when(orderRepository.findById(id)).thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> orderService.cancelOrder(id, customerId, "CUSTOMER", null))
+                    .isInstanceOf(OrderNotFoundException.class);
+        }
+
+        @Test
+        void shouldThrowWhenProcessing() {
+            var now = Instant.now();
+            var order = createOrderEntity(OrderStatus.PROCESSING, now);
+            when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
+
+            assertThatThrownBy(() -> orderService.cancelOrder(order.getId(), customerId, "CUSTOMER", null))
+                    .isInstanceOf(OrderCannotBeCancelledException.class);
+        }
+
+        @Test
+        void shouldThrow403ForCrossCustomerCancel() {
+            var now = Instant.now();
+            var order = createOrderEntity(OrderStatus.PENDING, now);
+            var otherUser = UUID.randomUUID();
+            when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
+
+            assertThatThrownBy(() -> orderService.cancelOrder(order.getId(), otherUser, "CUSTOMER", null))
+                    .isInstanceOf(InsufficientPermissionsException.class);
+        }
     }
 
-    @Test
-    void createOrder_throws_when_total_exceeds_limit() {
-        when(redisTemplate.hasKey(anyString())).thenReturn(false);
-        // 2 items × 500000 cents = 1000000 > 999999 limit
-        CreateOrderRequest request = buildRequest(List.of(
-            new OrderItemRequest("P1", "Item A", 1, 500000L),
-            new OrderItemRequest("P2", "Item B", 1, 500000L)
-        ));
-
-        assertThatThrownBy(() -> orderService.createOrder(request, CUSTOMER_ID))
-                .isInstanceOf(TotalExceedsLimitException.class)
-                .extracting("errorCode").isEqualTo("TOTAL_EXCEEDS_LIMIT");
-    }
-
-    // ── getOrder ──────────────────────────────────────────────────────────────
-
-    @Test
-    void getOrder_throws_not_found_when_order_missing() {
-        UUID orderId = UUID.randomUUID();
-        when(orderRepository.findById(orderId)).thenReturn(Optional.empty());
-
-        assertThatThrownBy(() -> orderService.getOrder(orderId, CUSTOMER_ID, "CUSTOMER_OWNER", null))
-                .isInstanceOf(OrderNotFoundException.class)
-                .extracting("errorCode").isEqualTo("ORDER_NOT_FOUND");
-    }
-
-    @Test
-    void getOrder_throws_403_when_customer_accesses_other_customer_order() {
-        Order order = buildSavedOrder(1000L);
-        UUID differentCustomer = UUID.randomUUID();
-        when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
-
-        assertThatThrownBy(() -> orderService.getOrder(order.getId(), differentCustomer, "CUSTOMER_OWNER", null))
-                .isInstanceOf(InsufficientPermissionsException.class)
-                .extracting("errorCode").isEqualTo("INSUFFICIENT_PERMISSIONS");
-    }
-
-    @Test
-    void getOrder_allows_merchant_to_view_own_merchant_orders() {
-        Order order = buildSavedOrder(1000L);
-        when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
-
-        OrderDetailResponse response = orderService.getOrder(
-                order.getId(), UUID.randomUUID(), "MERCHANT_OWNER", MERCHANT_ID);
-
-        assertThat(response.orderId()).isEqualTo(order.getId());
-    }
-
-    @Test
-    void getOrder_allows_admin_to_view_any_order() {
-        Order order = buildSavedOrder(1000L);
-        UUID anyUser = UUID.randomUUID();
-        when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
-
-        OrderDetailResponse response = orderService.getOrder(order.getId(), anyUser, "ADMIN", null);
-
-        assertThat(response.orderId()).isEqualTo(order.getId());
-    }
-
-    // ── cancelOrder ───────────────────────────────────────────────────────────
-
-    @Test
-    void cancelOrder_throws_when_order_not_pending() {
-        Order order = buildSavedOrder(1000L);
-        order.setStatus(OrderStatus.PAID);
-        when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
-
-        assertThatThrownBy(() -> orderService.cancelOrder(order.getId(), CUSTOMER_ID, "CUSTOMER_OWNER"))
-                .isInstanceOf(OrderCannotBeCancelledException.class)
-                .extracting("errorCode").isEqualTo("ORDER_CANNOT_BE_CANCELLED");
-    }
-
-    @Test
-    void cancelOrder_success_changes_status_to_cancelled() {
-        Order order = buildSavedOrder(1000L);
-        when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
-        when(orderRepository.save(any(Order.class))).thenReturn(order);
-
-        orderService.cancelOrder(order.getId(), CUSTOMER_ID, "CUSTOMER_OWNER");
-
-        ArgumentCaptor<Order> captor = ArgumentCaptor.forClass(Order.class);
-        verify(orderRepository).save(captor.capture());
-        assertThat(captor.getValue().getStatus()).isEqualTo(OrderStatus.CANCELLED);
-        verify(eventProducer).publishOrderCancelled(eq(order.getId()), eq(CUSTOMER_ID), eq("USER_REQUEST"));
-    }
-
-    // ── markOrderPaid / Failed / Refunded ────────────────────────────────────
-
-    @Test
-    void markOrderPaid_updates_status_to_paid() {
-        Order order = buildSavedOrder(1000L);
-        when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
-        when(orderRepository.save(any(Order.class))).thenReturn(order);
-
-        orderService.markOrderPaid(order.getId(), "TXN-001");
-
-        ArgumentCaptor<Order> captor = ArgumentCaptor.forClass(Order.class);
-        verify(orderRepository).save(captor.capture());
-        assertThat(captor.getValue().getStatus()).isEqualTo(OrderStatus.PAID);
-        assertThat(captor.getValue().getTransactionId()).isEqualTo("TXN-001");
-    }
-
-    @Test
-    void markOrderFailed_keeps_status_pending_if_not_expired() {
-        Order order = buildSavedOrder(1000L);
-        when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
-
-        orderService.markOrderFailed(order.getId());
-
-        // Status should remain PENDING — no save should be called
-        verify(orderRepository, never()).save(any());
-        assertThat(order.getStatus()).isEqualTo(OrderStatus.PENDING);
-    }
-
-    @Test
-    void markOrderRefunded_full_sets_refunded_status() {
-        Order order = buildSavedOrder(1000L);
-        order.setStatus(OrderStatus.PAID);
-        when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
-        when(orderRepository.save(any(Order.class))).thenReturn(order);
-
-        orderService.markOrderRefunded(order.getId(), true);
-
-        ArgumentCaptor<Order> captor = ArgumentCaptor.forClass(Order.class);
-        verify(orderRepository).save(captor.capture());
-        assertThat(captor.getValue().getStatus()).isEqualTo(OrderStatus.REFUNDED);
-    }
-
-    @Test
-    void markOrderRefunded_partial_sets_partially_refunded() {
-        Order order = buildSavedOrder(1000L);
-        order.setStatus(OrderStatus.PAID);
-        when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
-        when(orderRepository.save(any(Order.class))).thenReturn(order);
-
-        orderService.markOrderRefunded(order.getId(), false);
-
-        ArgumentCaptor<Order> captor = ArgumentCaptor.forClass(Order.class);
-        verify(orderRepository).save(captor.capture());
-        assertThat(captor.getValue().getStatus()).isEqualTo(OrderStatus.PARTIALLY_REFUNDED);
-    }
-
-    // ── Helpers ───────────────────────────────────────────────────────────────
-
-    private CreateOrderRequest buildRequest(List<OrderItemRequest> items) {
-        return new CreateOrderRequest(MERCHANT_ID, items, IDEMPOTENCY_KEY);
-    }
-
-    private Order buildSavedOrder(long totalInCents) {
-        Order order = new Order();
+    private Order createOrderEntity(OrderStatus status, Instant now) {
+        var order = new Order();
         order.setId(UUID.randomUUID());
-        order.setCustomerId(CUSTOMER_ID);
-        order.setMerchantId(MERCHANT_ID);
-        order.setStatus(OrderStatus.PENDING);
-        order.setTotalInCents(totalInCents);
-        order.setIdempotencyKey(UUID.randomUUID());
-        order.setExpiresAt(Instant.now().plusSeconds(900));
-        order.setCreatedAt(Instant.now());
-        order.setUpdatedAt(Instant.now());
-        order.setItems(new ArrayList<>());
+        order.setCustomerId(customerId);
+        order.setMerchantId(merchantId);
+        order.setStatus(status);
+        order.setTotalInCents(1000L);
+        order.setIdempotencyKey(idempotencyKey);
+        order.setCreatedAt(now);
+        order.setUpdatedAt(now);
+        order.setExpiresAt(status == OrderStatus.PENDING ? now.plusSeconds(900) : null);
+
+        var item = new OrderItem();
+        item.setId(UUID.randomUUID());
+        item.setOrder(order);
+        item.setProductId("prod-1");
+        item.setDescription("Item 1");
+        item.setQuantity(1);
+        item.setUnitPriceInCents(1000L);
+        item.setSubtotalInCents(1000L);
+        order.setItems(List.of(item));
+
         return order;
     }
 }

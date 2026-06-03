@@ -4,10 +4,13 @@ import java.time.Instant;
 import java.util.UUID;
 
 public record TransactionRefundedEvent(
-        String transactionId,
-        UUID orderId,
-        UUID customerId,
-        long refundedAmountInCents,
-        boolean fullRefund,
-        Instant timestamp
+    String refundId,
+    String transactionId,
+    UUID orderId,
+    String customerEmail,
+    Long amountRefundedInCents,
+    Boolean isFullRefund,
+    String reason,
+    Integer estimatedArrivalDays,
+    Instant refundedAt
 ) {}

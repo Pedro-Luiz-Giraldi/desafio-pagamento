@@ -5,5 +5,7 @@ public enum TransactionStatus {
     DECLINED,
     SUSPECTED_FRAUD,
     FULLY_REFUNDED,
-    PARTIALLY_REFUNDED
+    PARTIALLY_REFUNDED,
+    PROCESSING,
+    CANCELLED
 }

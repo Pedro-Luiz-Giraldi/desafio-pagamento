@@ -29,7 +29,7 @@ class IdempotencyServiceTest {
 
     @BeforeEach
     void setUp() {
-        when(redisTemplate.opsForValue()).thenReturn(valueOps);
+        lenient().when(redisTemplate.opsForValue()).thenReturn(valueOps);
         idempotencyService = new IdempotencyService(redisTemplate);
     }
 
@@ -48,7 +48,7 @@ class IdempotencyServiceTest {
     @Test
     void store_serializes_and_stores_in_redis() {
         UUID orderId = UUID.randomUUID();
-        TransactionResponse response = new TransactionResponse("txn_abc", 123L, orderId, "APPROVED", 200L);
+        TransactionResponse response = new TransactionResponse("txn_abc", 123L, orderId, "APPROVED", null, null, null, null, null, 200L, null, null);
 
         idempotencyService.store(IDEMPOTENCY_KEY, response);
 

@@ -1,12 +1,13 @@
 package com.acaboumony.payment.dto.request;
 
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
+import com.acaboumony.payment.domain.enums.RefundReason;
+import jakarta.validation.constraints.*;
 
 import java.util.UUID;
 
 public record RefundRequest(
-        Long amountInCents,
-        @NotBlank String reason,
-        @NotNull UUID idempotencyKey
+    @Min(1) Long amountInCents,
+    @NotNull RefundReason reason,
+    @NotNull UUID requestedBy,
+    @NotNull UUID idempotencyKey
 ) {}

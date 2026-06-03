@@ -1,11 +1,16 @@
 package com.acaboumony.order.exception;
 
-/**
- * Thrown when an order cannot be found by the given identifier.
- */
-public class OrderNotFoundException extends OrderServiceException {
+import java.util.UUID;
 
-    public OrderNotFoundException(String orderId) {
-        super("ORDER_NOT_FOUND", "Order not found: " + orderId);
+public class OrderNotFoundException extends RuntimeException {
+    private final UUID orderId;
+
+    public OrderNotFoundException(UUID orderId) {
+        super("Order not found: " + orderId);
+        this.orderId = orderId;
+    }
+
+    public UUID getOrderId() {
+        return orderId;
     }
 }

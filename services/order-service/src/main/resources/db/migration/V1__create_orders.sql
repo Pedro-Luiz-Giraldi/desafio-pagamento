@@ -1,22 +1,23 @@
-CREATE TYPE order_status AS ENUM (
-    'PENDING', 'PROCESSING', 'PAID', 'CANCELLED', 'REFUNDED', 'PARTIALLY_REFUNDED'
-);
+CREATE SCHEMA IF NOT EXISTS order_service;
+
+SET search_path TO order_service;
 
 CREATE TABLE orders (
-    id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    customer_id       UUID NOT NULL,
-    merchant_id       UUID NOT NULL,
-    status            order_status NOT NULL DEFAULT 'PENDING',
-    total_in_cents    BIGINT NOT NULL,
-    transaction_id    VARCHAR(64),
-    idempotency_key   UUID NOT NULL UNIQUE,
-    expires_at        TIMESTAMPTZ,
-    created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at        TIMESTAMPTZ NOT NULL DEFAULT now()
+    id              UUID         NOT NULL DEFAULT gen_random_uuid(),
+    customer_id     UUID         NOT NULL,
+    merchant_id     UUID         NOT NULL,
+    status          VARCHAR(50)  NOT NULL DEFAULT 'PENDING',
+    total_in_cents  BIGINT       NOT NULL,
+    transaction_id  VARCHAR(50),
+    idempotency_key UUID         NOT NULL,
+    created_at      TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    updated_at      TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    expires_at      TIMESTAMPTZ,
+    CONSTRAINT pk_orders PRIMARY KEY (id),
+    CONSTRAINT uq_orders_idempotency_key UNIQUE (idempotency_key),
+    CONSTRAINT chk_orders_status CHECK (status IN ('PENDING', 'PROCESSING', 'PAID', 'CANCELLED', 'REFUNDED', 'PARTIALLY_REFUNDED'))
 );
 
-CREATE INDEX idx_orders_customer_id ON orders(customer_id);
-CREATE INDEX idx_orders_merchant_id ON orders(merchant_id);
-CREATE INDEX idx_orders_status ON orders(status);
-CREATE INDEX idx_orders_idempotency_key ON orders(idempotency_key);
-CREATE INDEX idx_orders_expires_at ON orders(expires_at) WHERE status = 'PENDING';
+CREATE INDEX idx_orders_customer_id ON orders (customer_id);
+CREATE INDEX idx_orders_merchant_id ON orders (merchant_id);
+CREATE INDEX idx_orders_status      ON orders (status);

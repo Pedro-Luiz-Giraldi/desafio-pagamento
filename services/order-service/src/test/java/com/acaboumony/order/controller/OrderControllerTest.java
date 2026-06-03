@@ -1,25 +1,20 @@
 package com.acaboumony.order.controller;
 
-import com.acaboumony.order.config.InternalSecretProperties;
-import com.acaboumony.order.config.OrderProperties;
+import com.acaboumony.order.dto.ApiResponse;
 import com.acaboumony.order.dto.request.CreateOrderRequest;
-import com.acaboumony.order.dto.request.OrderItemRequest;
-import com.acaboumony.order.dto.response.InternalOrderResponse;
+import com.acaboumony.order.dto.request.ItemRequest;
 import com.acaboumony.order.dto.response.OrderDetailResponse;
-import com.acaboumony.order.dto.response.OrderItemResponse;
 import com.acaboumony.order.dto.response.OrderResponse;
+import com.acaboumony.order.dto.response.PagedResponse;
 import com.acaboumony.order.exception.InsufficientPermissionsException;
 import com.acaboumony.order.exception.OrderCannotBeCancelledException;
-import com.acaboumony.order.security.InternalSecretFilter;
+import com.acaboumony.order.exception.OrderNotFoundException;
 import com.acaboumony.order.service.OrderService;
+import com.acaboumony.order.service.OrderService.CreateOrderResult;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -29,178 +24,233 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@WebMvcTest(controllers = {OrderController.class, InternalOrderController.class})
-@Import({OrderControllerTest.TestConfig.class, GlobalExceptionHandler.class, InternalSecretFilter.class})
+@WebMvcTest(OrderController.class)
+@Import(GlobalExceptionHandler.class)
 class OrderControllerTest {
 
     @Autowired
     private MockMvc mockMvc;
 
+    @Autowired
+    private ObjectMapper objectMapper;
+
     @MockitoBean
     private OrderService orderService;
 
-    private final ObjectMapper objectMapper = new ObjectMapper()
-            .registerModule(new JavaTimeModule())
-            .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
-
-    private static final UUID USER_ID = UUID.randomUUID();
-    private static final UUID MERCHANT_ID = UUID.randomUUID();
-    private static final UUID ORDER_ID = UUID.randomUUID();
-
-    @TestConfiguration
-    static class TestConfig {
-        @Bean
-        public InternalSecretProperties internalSecretProperties() {
-            return new InternalSecretProperties("test-internal-secret");
-        }
-
-        @Bean
-        public OrderProperties orderProperties() {
-            return new OrderProperties(15);
-        }
-    }
-
     @Test
-    void returns_201_on_create_order() throws Exception {
-        CreateOrderRequest req = buildCreateRequest();
-        OrderResponse resp = buildOrderResponse();
+    void createOrderShouldReturn201() throws Exception {
+        var customerId = UUID.randomUUID();
+        var idempotencyKey = UUID.randomUUID();
+        var merchantId = UUID.randomUUID();
+        var orderId = UUID.randomUUID();
 
-        when(orderService.hasExistingOrder(any())).thenReturn(false);
-        when(orderService.createOrder(any(), any())).thenReturn(resp);
+        var request = new CreateOrderRequest(
+                merchantId,
+                List.of(new ItemRequest("prod-1", "Item 1", 1, 1000L))
+        );
+
+        var response = new OrderResponse(orderId, "PENDING", 1000L,
+                List.of(new OrderResponse.ItemResponse("prod-1", "Item 1", 1, 1000L, 1000L)),
+                Instant.now().plusSeconds(900), Instant.now());
+
+        when(orderService.createOrder(eq(customerId), any(), eq(idempotencyKey), any(CreateOrderRequest.class)))
+                .thenReturn(new CreateOrderResult.Success(response, true));
 
         mockMvc.perform(post("/api/v1/orders")
-                        .header("X-User-Id", USER_ID.toString())
-                        .header("X-User-Role", "CUSTOMER_OWNER")
+                        .header("X-User-Id", customerId)
+                        .header("X-User-Email", "customer@test.com")
+                        .header("Idempotency-Key", idempotencyKey)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(req)))
+                        .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.status").value("PENDING"))
-                .andExpect(jsonPath("$.totalInCents").value(1000));
+                .andExpect(jsonPath("$.data.orderId").value(orderId.toString()))
+                .andExpect(jsonPath("$.data.status").value("PENDING"))
+                .andExpect(jsonPath("$.data.totalInCents").value(1000))
+                .andExpect(jsonPath("$.errors").isEmpty());
     }
 
     @Test
-    void returns_200_on_duplicate_idempotency_key() throws Exception {
-        CreateOrderRequest req = buildCreateRequest();
-        OrderResponse resp = buildOrderResponse();
+    void createOrderShouldReturn200ForDuplicate() throws Exception {
+        var customerId = UUID.randomUUID();
+        var idempotencyKey = UUID.randomUUID();
+        var orderId = UUID.randomUUID();
 
-        when(orderService.hasExistingOrder(any())).thenReturn(true);
-        when(orderService.createOrder(any(), any())).thenReturn(resp);
+        var request = new CreateOrderRequest(
+                UUID.randomUUID(),
+                List.of(new ItemRequest("prod-1", "Item 1", 1, 1000L))
+        );
+
+        var response = new OrderResponse(orderId, "PENDING", 1000L,
+                List.of(new OrderResponse.ItemResponse("prod-1", "Item 1", 1, 1000L, 1000L)),
+                Instant.now().plusSeconds(900), Instant.now());
+
+        when(orderService.createOrder(eq(customerId), any(), eq(idempotencyKey), any(CreateOrderRequest.class)))
+                .thenReturn(new CreateOrderResult.Duplicate(response));
 
         mockMvc.perform(post("/api/v1/orders")
-                        .header("X-User-Id", USER_ID.toString())
-                        .header("X-User-Role", "CUSTOMER_OWNER")
+                        .header("X-User-Id", customerId)
+                        .header("X-User-Email", "customer@test.com")
+                        .header("Idempotency-Key", idempotencyKey)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(req)))
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void getOrderShouldReturn200() throws Exception {
+        var orderId = UUID.randomUUID();
+        var customerId = UUID.randomUUID();
+
+        var detail = new OrderDetailResponse(orderId, customerId, UUID.randomUUID(), "PAID",
+                1000L, List.of(), "txn_123",
+                Instant.now(), Instant.now(), null);
+
+        when(orderService.getOrder(eq(orderId), eq(customerId), eq("CUSTOMER"), any()))
+                .thenReturn(detail);
+
+        mockMvc.perform(get("/api/v1/orders/{orderId}", orderId)
+                        .header("X-User-Id", customerId)
+                        .header("X-User-Roles", "CUSTOMER"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value("PENDING"));
+                .andExpect(jsonPath("$.data.orderId").value(orderId.toString()))
+                .andExpect(jsonPath("$.data.status").value("PAID"))
+                .andExpect(jsonPath("$.errors").isEmpty());
     }
 
     @Test
-    void returns_400_on_empty_items() throws Exception {
-        CreateOrderRequest req = new CreateOrderRequest(MERCHANT_ID, List.of(), UUID.randomUUID());
+    void getOrderShouldReturn404() throws Exception {
+        var orderId = UUID.randomUUID();
+        var customerId = UUID.randomUUID();
 
-        mockMvc.perform(post("/api/v1/orders")
-                        .header("X-User-Id", USER_ID.toString())
-                        .header("X-User-Role", "CUSTOMER_OWNER")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(req)))
-                .andExpect(status().isBadRequest());
+        when(orderService.getOrder(eq(orderId), eq(customerId), eq("CUSTOMER"), any()))
+                .thenThrow(new OrderNotFoundException(orderId));
+
+        mockMvc.perform(get("/api/v1/orders/{orderId}", orderId)
+                        .header("X-User-Id", customerId)
+                        .header("X-User-Roles", "CUSTOMER"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.errors[0].code").value("ORDER_NOT_FOUND"));
     }
 
     @Test
-    void returns_200_on_get_order() throws Exception {
-        OrderDetailResponse detail = buildOrderDetailResponse();
-        when(orderService.getOrder(eq(ORDER_ID), any(), any(), any())).thenReturn(detail);
+    void getOrderShouldReturn403() throws Exception {
+        var orderId = UUID.randomUUID();
+        var customerId = UUID.randomUUID();
 
-        mockMvc.perform(get("/api/v1/orders/{orderId}", ORDER_ID)
-                        .header("X-User-Id", USER_ID.toString())
-                        .header("X-User-Role", "CUSTOMER_OWNER"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.orderId").value(ORDER_ID.toString()));
-    }
+        when(orderService.getOrder(eq(orderId), eq(customerId), eq("CUSTOMER"), any()))
+                .thenThrow(new InsufficientPermissionsException("Access denied"));
 
-    @Test
-    void returns_403_on_unauthorized_access() throws Exception {
-        when(orderService.getOrder(eq(ORDER_ID), any(), any(), any()))
-                .thenThrow(new InsufficientPermissionsException());
-
-        mockMvc.perform(get("/api/v1/orders/{orderId}", ORDER_ID)
-                        .header("X-User-Id", USER_ID.toString())
-                        .header("X-User-Role", "CUSTOMER_OWNER"))
+        mockMvc.perform(get("/api/v1/orders/{orderId}", orderId)
+                        .header("X-User-Id", customerId)
+                        .header("X-User-Roles", "CUSTOMER"))
                 .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.errorCode").value("INSUFFICIENT_PERMISSIONS"));
+                .andExpect(jsonPath("$.errors[0].code").value("INSUFFICIENT_PERMISSIONS"));
     }
 
     @Test
-    void returns_204_on_cancel_order() throws Exception {
-        doNothing().when(orderService).cancelOrder(eq(ORDER_ID), any(), any());
+    void listOrdersShouldReturn200() throws Exception {
+        var customerId = UUID.randomUUID();
+        var paged = new PagedResponse<OrderResponse>(List.of(), 0, 20, 0, 0);
 
-        mockMvc.perform(delete("/api/v1/orders/{orderId}", ORDER_ID)
-                        .header("X-User-Id", USER_ID.toString())
-                        .header("X-User-Role", "CUSTOMER_OWNER"))
+        when(orderService.listOrders(eq(customerId), eq("CUSTOMER"), any(), eq(null), eq(0), eq(20)))
+                .thenReturn(paged);
+
+        mockMvc.perform(get("/api/v1/orders")
+                        .header("X-User-Id", customerId)
+                        .header("X-User-Roles", "CUSTOMER"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content").isArray())
+                .andExpect(jsonPath("$.errors").isEmpty());
+    }
+
+    @Test
+    void cancelOrderShouldReturn204() throws Exception {
+        var orderId = UUID.randomUUID();
+        var customerId = UUID.randomUUID();
+
+        mockMvc.perform(delete("/api/v1/orders/{orderId}", orderId)
+                        .header("X-User-Id", customerId)
+                        .header("X-User-Roles", "CUSTOMER"))
                 .andExpect(status().isNoContent());
     }
 
     @Test
-    void returns_422_when_cancelling_paid_order() throws Exception {
-        doThrow(new OrderCannotBeCancelledException("PAID"))
-                .when(orderService).cancelOrder(eq(ORDER_ID), any(), any());
+    void cancelOrderShouldReturn422() throws Exception {
+        var orderId = UUID.randomUUID();
+        var customerId = UUID.randomUUID();
 
-        mockMvc.perform(delete("/api/v1/orders/{orderId}", ORDER_ID)
-                        .header("X-User-Id", USER_ID.toString())
-                        .header("X-User-Role", "CUSTOMER_OWNER"))
+        doThrow(new OrderCannotBeCancelledException(orderId, "PAID"))
+                .when(orderService).cancelOrder(orderId, customerId, "CUSTOMER", null);
+
+        mockMvc.perform(delete("/api/v1/orders/{orderId}", orderId)
+                        .header("X-User-Id", customerId)
+                        .header("X-User-Roles", "CUSTOMER"))
                 .andExpect(status().isUnprocessableEntity())
-                .andExpect(jsonPath("$.errorCode").value("ORDER_CANNOT_BE_CANCELLED"));
+                .andExpect(jsonPath("$.errors[0].code").value("ORDER_CANNOT_BE_CANCELLED"));
     }
 
     @Test
-    void internal_endpoint_returns_403_without_secret() throws Exception {
-        mockMvc.perform(get("/internal/orders/{orderId}", ORDER_ID))
-                .andExpect(status().isForbidden());
+    void createOrderShouldReturn400WhenInvalid() throws Exception {
+        var customerId = UUID.randomUUID();
+
+        var request = new CreateOrderRequest(null, List.of());
+
+        mockMvc.perform(post("/api/v1/orders")
+                        .header("X-User-Id", customerId)
+                        .header("X-User-Email", "customer@test.com")
+                        .header("Idempotency-Key", UUID.randomUUID())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors").isNotEmpty());
     }
 
     @Test
-    void internal_endpoint_returns_200_with_correct_secret() throws Exception {
-        InternalOrderResponse resp = new InternalOrderResponse(
-                ORDER_ID, "PENDING", 1000L, MERCHANT_ID, USER_ID);
-        when(orderService.getOrderInternal(ORDER_ID)).thenReturn(resp);
+    void createOrderShouldReturn400ForInvalidItemPrice() throws Exception {
+        var customerId = UUID.randomUUID();
+        var idempotencyKey = UUID.randomUUID();
 
-        mockMvc.perform(get("/internal/orders/{orderId}", ORDER_ID)
-                        .header("X-Internal-Secret", "test-internal-secret"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.orderId").value(ORDER_ID.toString()))
-                .andExpect(jsonPath("$.status").value("PENDING"));
+        var request = new CreateOrderRequest(
+                UUID.randomUUID(),
+                List.of(new ItemRequest("p1", "Cheap item", 1, 1000L))
+        );
+
+        when(orderService.createOrder(eq(customerId), any(), eq(idempotencyKey), any(CreateOrderRequest.class)))
+                .thenThrow(new OrderService.InvalidItemPriceException(1000L));
+
+        mockMvc.perform(post("/api/v1/orders")
+                        .header("X-User-Id", customerId)
+                        .header("X-User-Email", "customer@test.com")
+                        .header("Idempotency-Key", idempotencyKey)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors[0].code").value("INVALID_ITEM_PRICE"));
     }
 
-    // ── Builders ─────────────────────────────────────────────────────────────
+    @Test
+    void listOrdersShouldFilterByStatus() throws Exception {
+        var customerId = UUID.randomUUID();
+        var paged = new PagedResponse<OrderResponse>(List.of(), 0, 20, 0, 0);
 
-    private CreateOrderRequest buildCreateRequest() {
-        return new CreateOrderRequest(
-                MERCHANT_ID,
-                List.of(new OrderItemRequest("P1", "Product 1", 2, 500L)),
-                UUID.randomUUID()
-        );
-    }
+        when(orderService.listOrders(eq(customerId), eq("CUSTOMER"), any(), eq("PENDING"), eq(0), eq(20)))
+                .thenReturn(paged);
 
-    private OrderResponse buildOrderResponse() {
-        return new OrderResponse(
-                ORDER_ID, "PENDING", 1000L,
-                List.of(new OrderItemResponse("P1", "Product 1", 2, 500L, 1000L)),
-                Instant.now().plusSeconds(900),
-                Instant.now()
-        );
-    }
-
-    private OrderDetailResponse buildOrderDetailResponse() {
-        return new OrderDetailResponse(
-                ORDER_ID, USER_ID, MERCHANT_ID, "PENDING", 1000L,
-                List.of(new OrderItemResponse("P1", "Product 1", 2, 500L, 1000L)),
-                null, Instant.now(), Instant.now(), Instant.now().plusSeconds(900)
-        );
+        mockMvc.perform(get("/api/v1/orders")
+                        .header("X-User-Id", customerId)
+                        .header("X-User-Roles", "CUSTOMER")
+                        .param("status", "PENDING"))
+                .andExpect(status().isOk());
     }
 }

@@ -1,8 +1,7 @@
 package com.acaboumony.payment.domain.entity;
 
 import jakarta.persistence.*;
-
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Entity
@@ -10,37 +9,47 @@ import java.util.UUID;
 public class AuditLog {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
-    private UUID id;
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
+    @Column(name = "transaction_id", length = 64)
     private String transactionId;
 
-    @Column(nullable = false)
-    private String eventType;
+    @Column(name = "action", nullable = false, length = 64)
+    private String action;
 
-    @Column(columnDefinition = "TEXT")
-    private String details;
+    @Column(name = "actor_id")
+    private UUID actorId;
 
-    @Column(nullable = false)
-    private Instant createdAt;
+    @Column(name = "payload", columnDefinition = "jsonb")
+    private String payload;
+
+    @Column(name = "ip_address", length = 45)
+    private String ipAddress;
+
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private LocalDateTime createdAt;
 
     @PrePersist
-    void prePersist() {
-        createdAt = Instant.now();
+    protected void onCreate() {
+        createdAt = LocalDateTime.now();
     }
 
-    public UUID getId() { return id; }
-    public void setId(UUID id) { this.id = id; }
+    public AuditLog() {}
 
+    public AuditLog(String transactionId, String action, UUID actorId, String payload, String ipAddress) {
+        this.transactionId = transactionId;
+        this.action = action;
+        this.actorId = actorId;
+        this.payload = payload;
+        this.ipAddress = ipAddress;
+    }
+
+    public Long getId() { return id; }
     public String getTransactionId() { return transactionId; }
-    public void setTransactionId(String transactionId) { this.transactionId = transactionId; }
-
-    public String getEventType() { return eventType; }
-    public void setEventType(String eventType) { this.eventType = eventType; }
-
-    public String getDetails() { return details; }
-    public void setDetails(String details) { this.details = details; }
-
-    public Instant getCreatedAt() { return createdAt; }
-    public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
+    public String getAction() { return action; }
+    public UUID getActorId() { return actorId; }
+    public String getPayload() { return payload; }
+    public String getIpAddress() { return ipAddress; }
+    public LocalDateTime getCreatedAt() { return createdAt; }
 }
