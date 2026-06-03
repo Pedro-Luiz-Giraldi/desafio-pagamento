@@ -195,8 +195,7 @@ src/test/java/com/acaboumony/notification/integration/OrderCreatedEmailIntegrati
 | 1 | ambos | Sem integração real com Docker/Testcontainers (testes `@Disabled`) | Média |
 | 2 | notification | `UserEventConsumer` loga email completo em INFO — LGPD (aceito para diagnóstico) | Baixa |
 | 3 | order | spec.md faltando seção 11 (Safety) | Baixa |
-| 4 | both | Sem Webhook/WebSocket/Relatórios (postergado do Sprint 3) | Média |
-| 5 | notification | `EmailRateLimiter.shutdown()` e métodos internos (`cleanup()`) sem cobertura de teste | Baixa |
+| 4 | notification | `EmailRateLimiter.shutdown()` e métodos internos (`cleanup()`) sem cobertura de teste | Baixa |
 
 ---
 

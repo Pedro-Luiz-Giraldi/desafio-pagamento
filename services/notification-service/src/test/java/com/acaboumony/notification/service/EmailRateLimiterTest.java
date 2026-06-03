@@ -6,6 +6,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 
 class EmailRateLimiterTest {
 
@@ -107,5 +108,46 @@ class EmailRateLimiterTest {
         var counterB = meterRegistry.counter("notification.email.rate.limited", "recipient", "b@test.com");
         assertThat(counterA.count()).isEqualTo(1.0);
         assertThat(counterB.count()).isEqualTo(1.0);
+    }
+
+    // --- cleanup() tests ---
+
+    @Test
+    void deve_executar_cleanup_sem_erro_quando_sem_buckets() {
+        limiter = new EmailRateLimiter(10, meterRegistry);
+        limiter.startCleanup();
+
+        assertThatCode(() -> limiter.cleanup()).doesNotThrowAnyException();
+    }
+
+    @Test
+    void deve_executar_cleanup_sem_erro_quando_com_buckets_ativos() {
+        limiter = new EmailRateLimiter(100, meterRegistry);
+        limiter.startCleanup();
+
+        limiter.isRateLimited("alice@test.com");
+        limiter.isRateLimited("bob@test.com");
+
+        assertThatCode(() -> limiter.cleanup()).doesNotThrowAnyException();
+    }
+
+    // --- shutdown() tests ---
+
+    @Test
+    void deve_executar_shutdown_sem_erro() {
+        limiter = new EmailRateLimiter(10, meterRegistry);
+
+        assertThatCode(() -> limiter.shutdown()).doesNotThrowAnyException();
+    }
+
+    @Test
+    void deve_continuar_rate_limiting_apos_shutdown() {
+        limiter = new EmailRateLimiter(2, meterRegistry);
+        limiter.startCleanup();
+        limiter.shutdown();
+
+        assertThat(limiter.isRateLimited("test@test.com")).isFalse();
+        assertThat(limiter.isRateLimited("test@test.com")).isFalse();
+        assertThat(limiter.isRateLimited("test@test.com")).isTrue();
     }
 }

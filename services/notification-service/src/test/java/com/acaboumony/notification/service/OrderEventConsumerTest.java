@@ -123,7 +123,7 @@ class OrderEventConsumerTest {
         verify(emailService).sendEmail(
                 customerEmail,
                 "Pedido cancelado — #" + orderId,
-                "order-created",
+                "order-cancelled",
                 Map.of("orderId", orderId.toString(), "reason", "Order expired"),
                 orderId.toString()
         );

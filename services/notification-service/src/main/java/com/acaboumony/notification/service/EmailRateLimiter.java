@@ -67,7 +67,7 @@ public class EmailRateLimiter {
         }
     }
 
-    private void cleanup() {
+    void cleanup() {
         var now = Instant.now();
         buckets.entrySet().removeIf(entry -> {
             var bucket = entry.getValue();
