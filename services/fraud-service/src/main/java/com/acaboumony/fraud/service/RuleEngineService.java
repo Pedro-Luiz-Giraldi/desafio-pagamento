@@ -15,17 +15,20 @@ public class RuleEngineService {
     private final List<FraudRule> rules;
     private final StringRedisTemplate redis;
 
-    public RuleEngineService(StringRedisTemplate redis, IpBlacklistRepository ipBlacklistRepository) {
+    public RuleEngineService(StringRedisTemplate redis,
+                             IpBlacklistRepository ipBlacklistRepository,
+                             FirstPurchaseMaxValueRule firstPurchaseRule,
+                             NewDeviceHighValueRule newDeviceRule) {
         this.redis = redis;
         this.rules = List.of(
             new VelocityRule(),
             new AmountAnomalyRule(),
             new IpBlacklistRule(ipBlacklistRepository),
             new CountryMismatchRule(),
-            new DeviceFingerprintRule(),
+            newDeviceRule,
             new CardAbuseRule(),
             new UnusualHourRule(),
-            new FirstPurchaseRule(),
+            firstPurchaseRule,
             new IpChangeRule(),
             new MerchantPatternRule()
         );

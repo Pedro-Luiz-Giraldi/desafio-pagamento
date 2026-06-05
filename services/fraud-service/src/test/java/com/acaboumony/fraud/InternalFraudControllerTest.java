@@ -64,6 +64,7 @@ class InternalFraudControllerTest {
         return new FraudAnalysisRequest(
                 "txn-001",
                 UUID.fromString("00000000-0000-0000-0000-000000000002"),
+                UUID.fromString("00000000-0000-0000-0000-000000000003"),
                 1000L,
                 "pm_card_visa",
                 "192.168.1.1",
@@ -91,7 +92,7 @@ class InternalFraudControllerTest {
     void returns_400_with_missing_transaction_id() throws Exception {
         FraudAnalysisRequest invalidRequest = new FraudAnalysisRequest(
                 "",   // blank transactionId — @NotBlank violation
-                UUID.randomUUID(), 1000L, "pm_card_visa", "192.168.1.1",
+                UUID.randomUUID(), UUID.randomUUID(), 1000L, "pm_card_visa", "192.168.1.1",
                 null, null, null
         );
 
@@ -139,7 +140,7 @@ class InternalFraudControllerTest {
     @DisplayName("returns_400_with_null_customer_id — Bean Validation")
     void returns_400_with_null_customer_id() throws Exception {
         FraudAnalysisRequest invalidRequest = new FraudAnalysisRequest(
-                "txn-001", null, 1000L, "pm_card_visa", "192.168.1.1",
+                "txn-001", null, UUID.randomUUID(), 1000L, "pm_card_visa", "192.168.1.1",
                 null, null, null
         );
 

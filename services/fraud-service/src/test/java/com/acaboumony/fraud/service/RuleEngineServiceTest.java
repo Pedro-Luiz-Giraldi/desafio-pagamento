@@ -43,7 +43,9 @@ class RuleEngineServiceTest {
         lenient().when(redis.opsForZSet()).thenReturn(zSetOps);
         lenient().when(redis.opsForValue()).thenReturn(valueOps);
         lenient().when(redis.opsForSet()).thenReturn(setOps);
-        ruleEngine = new RuleEngineService(redis, ipBlacklistRepository);
+        ruleEngine = new RuleEngineService(redis, ipBlacklistRepository,
+            new com.acaboumony.fraud.rules.FirstPurchaseMaxValueRule(),
+            new com.acaboumony.fraud.rules.NewDeviceHighValueRule());
         request = new FraudAnalysisRequest(
             "txn_001", UUID.randomUUID(), UUID.randomUUID(), 5000L,
             "visa", "192.168.1.1", null, null, null

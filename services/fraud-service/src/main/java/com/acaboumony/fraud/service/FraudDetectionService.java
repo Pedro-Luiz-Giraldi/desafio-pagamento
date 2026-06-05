@@ -4,6 +4,7 @@ import com.acaboumony.fraud.domain.entity.FraudAlert;
 import com.acaboumony.fraud.domain.enums.FraudDecision;
 import com.acaboumony.fraud.dto.request.FraudAnalysisRequest;
 import com.acaboumony.fraud.dto.response.FraudScore;
+import com.acaboumony.fraud.dto.response.FraudScoreResponse;
 import com.acaboumony.fraud.event.FraudEventProducer;
 import com.acaboumony.fraud.repository.FraudAlertRepository;
 import com.acaboumony.fraud.repository.IpBlacklistRepository;
@@ -83,6 +84,11 @@ public class FraudDetectionService {
             .description("Fraud analysis duration").register(meterRegistry);
     }
 
+    public FraudScoreResponse analyzeTransaction(FraudAnalysisRequest request) {
+        FraudScore s = score(request);
+        return new FraudScoreResponse(s.score(), s.decision(), s.reasons(), s.analysisTimeMs());
+    }
+
     public FraudScore score(FraudAnalysisRequest request) {
         Instant start = Instant.now();
 
@@ -136,7 +142,7 @@ public class FraudDetectionService {
 
         if (decision == FraudDecision.BLOCK) {
             try {
-                autoBlacklistIp(request);
+                autoBlacklistIp(request, finalScore);
             } catch (Exception e) {
                 log.warn("Redis IP blacklist failed for transaction {}: {}", request.transactionId(), e.getMessage());
             }
@@ -191,7 +197,7 @@ public class FraudDetectionService {
         redis.expire(merchantKey, velocityTtlMinutes, TimeUnit.MINUTES);
     }
 
-    private void autoBlacklistIp(FraudAnalysisRequest request) {
+    private void autoBlacklistIp(FraudAnalysisRequest request, int score) {
         String anonymizedIp = anonymizeIp(request.ipAddress());
         String key = "fraud:ip_blacklist:" + request.ipAddress();
         redis.opsForSet().add(key, request.ipAddress());
@@ -200,7 +206,7 @@ public class FraudDetectionService {
             if (ipBlacklistRepository.findByIpAddress(request.ipAddress()).isEmpty()) {
                 var entry = com.acaboumony.fraud.domain.entity.IpBlacklist.builder()
                     .ipAddress(request.ipAddress())
-                    .reason("AUTO_BLACKLIST - score=" + request)
+                    .reason("AUTO_BLACKLIST - score=" + score)
                     .source(com.acaboumony.fraud.domain.enums.BlacklistSource.AUTOMATIC)
                     .expiresAt(java.time.OffsetDateTime.now().plusHours(ipBlacklistTtlHours))
                     .build();

@@ -1,13 +1,23 @@
 package com.acaboumony.fraud.controller;
 
+import com.acaboumony.fraud.config.InternalSecretProperties;
+import com.acaboumony.fraud.config.SecurityConfig;
+import com.acaboumony.fraud.config.TestSecurityConfig;
 import com.acaboumony.fraud.dto.request.FraudAnalysisRequest;
 import com.acaboumony.fraud.dto.response.FraudScore;
+import com.acaboumony.fraud.exception.GlobalExceptionHandler;
+import com.acaboumony.fraud.security.InternalSecretFilter;
 import com.acaboumony.fraud.service.FraudDetectionService;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.context.annotation.ComponentScan;
+import org.springframework.context.annotation.FilterType;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -19,17 +29,26 @@ import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@WebMvcTest(FraudController.class)
+@WebMvcTest(
+        controllers = FraudController.class,
+        excludeAutoConfiguration = SecurityAutoConfiguration.class,
+        excludeFilters = @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = SecurityConfig.class)
+)
+@Import({GlobalExceptionHandler.class, TestSecurityConfig.class, InternalSecretFilter.class})
 class FraudControllerTest {
 
-    @Autowired
-    private MockMvc mockMvc;
+    static final String TEST_SECRET = "test-internal-secret";
 
-    @Autowired
-    private ObjectMapper objectMapper;
+    @Autowired MockMvc mockMvc;
+    @Autowired ObjectMapper objectMapper;
 
-    @MockBean
-    private FraudDetectionService fraudDetection;
+    @MockBean FraudDetectionService fraudDetection;
+    @MockBean InternalSecretProperties internalSecretProperties;
+
+    @BeforeEach
+    void setUp() {
+        when(internalSecretProperties.secret()).thenReturn(TEST_SECRET);
+    }
 
     @Test
     void scoreEndpoint_shouldReturnFraudScore() throws Exception {
@@ -42,6 +61,7 @@ class FraudControllerTest {
         when(fraudDetection.score(any())).thenReturn(expected);
 
         mockMvc.perform(post("/internal/fraud/score")
+                .header("X-Internal-Secret", TEST_SECRET)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
             .andExpect(status().isOk())
@@ -59,6 +79,7 @@ class FraudControllerTest {
             """;
 
         mockMvc.perform(post("/internal/fraud/score")
+                .header("X-Internal-Secret", TEST_SECRET)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(invalidJson))
             .andExpect(status().isBadRequest());
@@ -75,6 +96,7 @@ class FraudControllerTest {
         when(fraudDetection.score(any())).thenReturn(expected);
 
         mockMvc.perform(post("/internal/fraud/score")
+                .header("X-Internal-Secret", TEST_SECRET)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
             .andExpect(status().isOk())

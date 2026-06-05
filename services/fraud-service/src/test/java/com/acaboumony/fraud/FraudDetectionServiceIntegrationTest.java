@@ -95,7 +95,7 @@ class FraudDetectionServiceIntegrationTest {
         // velocity(30) + blacklist(40) = 70 → REVIEW
         FraudAnalysisRequest request = new FraudAnalysisRequest(
                 UUID.randomUUID().toString(),
-                customerId, 100L, "pm_card_visa", ip,
+                customerId, UUID.randomUUID(), 100L, "pm_card_visa", ip,
                 null, null, null
         );
 
@@ -117,7 +117,7 @@ class FraudDetectionServiceIntegrationTest {
         UUID customerId = UUID.fromString("33333333-3333-3333-3333-333333333333");
         FraudAnalysisRequest request = new FraudAnalysisRequest(
                 UUID.randomUUID().toString(),
-                customerId, 100L, "pm_card_visa", "5.6.7.8",
+                customerId, UUID.randomUUID(), 100L, "pm_card_visa", "5.6.7.8",
                 null, null, null
         );
 
@@ -134,7 +134,7 @@ class FraudDetectionServiceIntegrationTest {
         UUID customerId = UUID.fromString("44444444-4444-4444-4444-444444444444");
         FraudAnalysisRequest request = new FraudAnalysisRequest(
                 UUID.randomUUID().toString(),
-                customerId, 100L, "pm_card_visa", "9.10.11.12",
+                customerId, UUID.randomUUID(), 100L, "pm_card_visa", "9.10.11.12",
                 null, null, null
         );
 
@@ -184,7 +184,7 @@ class FraudDetectionServiceIntegrationTest {
 
         FraudAnalysisRequest request = new FraudAnalysisRequest(
                 UUID.randomUUID().toString(),
-                customerId, 60_000L, "pm_card_visa", ip,
+                customerId, UUID.randomUUID(), 60_000L, "pm_card_visa", ip,
                 "fp-device-xyz", null, null
         );
 

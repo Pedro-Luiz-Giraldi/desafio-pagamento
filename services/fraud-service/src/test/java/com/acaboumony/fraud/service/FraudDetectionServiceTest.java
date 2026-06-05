@@ -61,7 +61,9 @@ class FraudDetectionServiceTest {
         lenient().when(redis.opsForZSet()).thenReturn(zSetOps);
         lenient().when(redis.opsForValue()).thenReturn(valueOps);
         lenient().when(redis.opsForSet()).thenReturn(setOps);
-        ruleEngine = new RuleEngineService(redis, ipBlacklistRepository);
+        ruleEngine = new RuleEngineService(redis, ipBlacklistRepository,
+            new com.acaboumony.fraud.rules.FirstPurchaseMaxValueRule(),
+            new com.acaboumony.fraud.rules.NewDeviceHighValueRule());
         fraudDetection = new FraudDetectionService(ruleEngine, claudeAnalyzer, alertRepository, ipBlacklistRepository, redis, eventProducer, new SimpleMeterRegistry(),
             90, 70, 250L, 24L, 30, 5L);
         request = new FraudAnalysisRequest(
