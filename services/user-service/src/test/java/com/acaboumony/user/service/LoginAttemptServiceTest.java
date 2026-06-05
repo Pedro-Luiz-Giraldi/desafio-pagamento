@@ -14,6 +14,7 @@ import org.springframework.data.redis.core.ValueOperations;
 import java.time.Instant;
 import java.util.Optional;
 
+import static com.acaboumony.user.service.LoginAttemptService.keyHash;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -43,7 +44,7 @@ class LoginAttemptServiceTest {
 
     @Test
     void deve_incrementar_contador_e_retornar_resultado_sem_bloqueio() {
-        when(valueOps.increment("login_attempts:ana@loja.com.br")).thenReturn(2L);
+        when(valueOps.increment("login_attempts:" + keyHash("ana@loja.com.br"))).thenReturn(2L);
 
         LoginAttemptService.LoginAttemptResult result = service.recordFailure("ana@loja.com.br");
 
@@ -54,11 +55,11 @@ class LoginAttemptServiceTest {
 
     @Test
     void deve_definir_TTL_na_primeira_tentativa() {
-        when(valueOps.increment("login_attempts:ana@loja.com.br")).thenReturn(1L);
+        when(valueOps.increment("login_attempts:" + keyHash("ana@loja.com.br"))).thenReturn(1L);
 
         service.recordFailure("ana@loja.com.br");
 
-        verify(redis).expire(eq("login_attempts:ana@loja.com.br"), any());
+        verify(redis).expire(eq("login_attempts:" + keyHash("ana@loja.com.br")), any());
     }
 
     @Test
@@ -69,7 +70,7 @@ class LoginAttemptServiceTest {
 
         assertThat(result.nowLocked()).isTrue();
         assertThat(result.unlockAt()).isNotNull();
-        verify(valueOps).set(eq("account_locked:ana@loja.com.br"), anyString(), any());
+        verify(valueOps).set(eq("account_locked:" + keyHash("ana@loja.com.br")), anyString(), any());
     }
 
     @Test
@@ -87,22 +88,22 @@ class LoginAttemptServiceTest {
     void deve_apagar_chaves_de_tentativa_e_bloqueio_no_sucesso() {
         service.recordSuccess("ana@loja.com.br");
 
-        verify(redis).delete("login_attempts:ana@loja.com.br");
-        verify(redis).delete("account_locked:ana@loja.com.br");
+        verify(redis).delete("login_attempts:" + keyHash("ana@loja.com.br"));
+        verify(redis).delete("account_locked:" + keyHash("ana@loja.com.br"));
     }
 
     // ─── isLocked ─────────────────────────────────────────────────────────────
 
     @Test
     void deve_retornar_true_quando_conta_bloqueada() {
-        when(redis.hasKey("account_locked:ana@loja.com.br")).thenReturn(true);
+        when(redis.hasKey("account_locked:" + keyHash("ana@loja.com.br"))).thenReturn(true);
 
         assertThat(service.isLocked("ana@loja.com.br")).isTrue();
     }
 
     @Test
     void deve_retornar_false_quando_conta_nao_bloqueada() {
-        when(redis.hasKey("account_locked:ana@loja.com.br")).thenReturn(false);
+        when(redis.hasKey("account_locked:" + keyHash("ana@loja.com.br"))).thenReturn(false);
 
         assertThat(service.isLocked("ana@loja.com.br")).isFalse();
     }
@@ -111,7 +112,7 @@ class LoginAttemptServiceTest {
 
     @Test
     void deve_retornar_Optional_empty_quando_nao_bloqueado() {
-        when(valueOps.get("account_locked:ana@loja.com.br")).thenReturn(null);
+        when(valueOps.get("account_locked:" + keyHash("ana@loja.com.br"))).thenReturn(null);
 
         assertThat(service.getUnlockAt("ana@loja.com.br")).isEmpty();
     }
@@ -119,7 +120,7 @@ class LoginAttemptServiceTest {
     @Test
     void deve_retornar_Instant_quando_bloqueado() {
         Instant unlockAt = Instant.now().plusSeconds(1800);
-        when(valueOps.get("account_locked:ana@loja.com.br")).thenReturn(unlockAt.toString());
+        when(valueOps.get("account_locked:" + keyHash("ana@loja.com.br"))).thenReturn(unlockAt.toString());
 
         Optional<Instant> result = service.getUnlockAt("ana@loja.com.br");
 
@@ -129,7 +130,7 @@ class LoginAttemptServiceTest {
 
     @Test
     void deve_retornar_Optional_empty_quando_valor_invalido_no_redis() {
-        when(valueOps.get("account_locked:ana@loja.com.br")).thenReturn("valor-invalido");
+        when(valueOps.get("account_locked:" + keyHash("ana@loja.com.br"))).thenReturn("valor-invalido");
 
         assertThat(service.getUnlockAt("ana@loja.com.br")).isEmpty();
     }

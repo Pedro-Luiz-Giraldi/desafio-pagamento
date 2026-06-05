@@ -36,6 +36,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.List;
 import java.util.UUID;
@@ -101,7 +102,9 @@ public class TwoFactorService {
         }
 
         String secret = new DefaultSecretGenerator().generate();
+        List<String> recoveryCodes = generateRecoveryCodes();
         redis.opsForValue().set("2fa_setup:" + userId, secret, Duration.ofMinutes(10));
+        redis.opsForValue().set("2fa_recovery:" + userId, String.join(",", recoveryCodes), Duration.ofMinutes(10));
 
         String otpAuthUrl = new QrData.Builder()
                 .label(user.getEmail())
@@ -123,7 +126,6 @@ public class TwoFactorService {
             qrCodeUrl = otpAuthUrl; // fallback
         }
 
-        List<String> recoveryCodes = generateRecoveryCodes();
         log.info("2FA setup initiated: userId={}", userId);
         return new TwoFactorSetupResponse(secret, qrCodeUrl, otpAuthUrl, recoveryCodes);
     }
@@ -141,14 +143,18 @@ public class TwoFactorService {
             throw new InvalidTotpCodeException();
         }
 
+        String codesStr = redis.opsForValue().get("2fa_recovery:" + userId);
+        if (codesStr == null) {
+            throw new InvalidTotpCodeException(); // setup expired before confirmation
+        }
+        List<String> plaintextCodes = Arrays.asList(codesStr.split(","));
+
         User user = userRepository.findById(userId).orElseThrow(UserNotFoundException::new);
 
         user.setTotpSecretEncrypted(cryptoService.encrypt(secret));
         user.setTotpEnabled(true);
         userRepository.save(user);
 
-        // Persist hashed recovery codes
-        List<String> plaintextCodes = generateRecoveryCodes();
         for (String plainCode : plaintextCodes) {
             recoveryCodeRepository.save(RecoveryCode.builder()
                     .user(user)
@@ -157,6 +163,7 @@ public class TwoFactorService {
         }
 
         redis.delete("2fa_setup:" + userId);
+        redis.delete("2fa_recovery:" + userId);
         eventProducer.publishTwoFactorEnabled(userId);
         auditLogger.log(userId, "2FA_ENABLED", null, null);
         log.info("2FA confirmed: userId={}", userId);

@@ -1,5 +1,6 @@
 package com.acaboumony.user.controller;
 
+import com.acaboumony.user.domain.enums.UserStatus;
 import com.acaboumony.user.dto.response.InternalUserResponse;
 import com.acaboumony.user.exception.UserNotFoundException;
 import com.acaboumony.user.repository.UserRepository;
@@ -36,6 +37,10 @@ public class InternalUserController {
     public ResponseEntity<InternalUserResponse> getUser(@PathVariable UUID customerId) {
         var user = userRepository.findById(customerId)
                 .orElseThrow(UserNotFoundException::new);
+
+        if (user.getStatus() != UserStatus.ACTIVE) {
+            throw new UserNotFoundException();
+        }
 
         log.debug("Internal user lookup: customerId={}, role={}", customerId, user.getRole());
 

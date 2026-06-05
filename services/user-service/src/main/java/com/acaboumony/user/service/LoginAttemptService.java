@@ -12,6 +12,7 @@ import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
+import java.util.HexFormat;
 import java.util.Optional;
 
 /**
@@ -107,11 +108,21 @@ public class LoginAttemptService {
     // ─── private helpers ─────────────────────────────────────────────────────
 
     private String attemptsKey(String email) {
-        return String.format(ATTEMPTS_KEY, email);
+        return String.format(ATTEMPTS_KEY, keyHash(email));
     }
 
     private String lockedKey(String email) {
-        return String.format(LOCKED_KEY, email);
+        return String.format(LOCKED_KEY, keyHash(email));
+    }
+
+    static String keyHash(String email) {
+        try {
+            byte[] hash = MessageDigest.getInstance("SHA-256")
+                    .digest(email.getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(hash);
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 not available", e);
+        }
     }
 
     private String hashEmail(String email) {

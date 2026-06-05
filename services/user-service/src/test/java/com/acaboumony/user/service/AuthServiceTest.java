@@ -85,7 +85,7 @@ class AuthServiceTest {
         assertThat(resp.email()).isEqualTo(saved.getEmail());
         assertThat(resp.role()).isEqualTo("CUSTOMER");
         assertThat(resp.merchantId()).isNull();
-        verify(userEventProducer).publishUserRegistered(any(), any(), any(), any());
+        verify(userEventProducer).publishUserRegistered(any(), any(), any(), any(), any(), any());
     }
 
     @Test

@@ -3,6 +3,7 @@ package com.acaboumony.user.controller;
 import com.acaboumony.user.dto.request.ConfirmEmailRequest;
 import com.acaboumony.user.dto.request.LoginRequest;
 import com.acaboumony.user.dto.request.RegisterRequest;
+import com.acaboumony.user.dto.request.ResendConfirmationRequest;
 import com.acaboumony.user.dto.response.RegisterResponse;
 import com.acaboumony.user.exception.RefreshTokenInvalidException;
 import com.acaboumony.user.result.AuthResult;
@@ -90,12 +91,9 @@ public class AuthController {
     }
 
     @PostMapping("/resend-confirmation")
-    public ResponseEntity<ProblemDetail> resendConfirmation() {
-        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
-                HttpStatus.NOT_IMPLEMENTED, "Feature available in Sprint 2");
-        pd.setType(URI.create("about:blank"));
-        pd.setProperty("errorCode", "NOT_IMPLEMENTED_SPRINT_2");
-        return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).body(pd);
+    public ResponseEntity<Void> resendConfirmation(@Valid @RequestBody ResendConfirmationRequest req) {
+        authService.resendConfirmation(req.email());
+        return ResponseEntity.ok().build();
     }
 
     private ResponseEntity<?> mapFailure(AuthResult.Failure f) {

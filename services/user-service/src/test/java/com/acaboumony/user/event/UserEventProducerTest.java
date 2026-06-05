@@ -38,10 +38,10 @@ class UserEventProducerTest {
         when(kafkaTemplate.send(anyString(), anyString(), any()))
                 .thenReturn(CompletableFuture.completedFuture(null));
 
-        producer.publishUserRegistered(userId, "ana@loja.com.br", UserRole.CUSTOMER, null);
+        producer.publishUserRegistered(userId, "ana@loja.com.br", "Ana Lima", UserRole.CUSTOMER, null, "confirm-token-abc");
 
         ArgumentCaptor<UserEvent> eventCaptor = ArgumentCaptor.forClass(UserEvent.class);
-        verify(kafkaTemplate).send(eq("user-events"), eq(userId.toString()), eventCaptor.capture());
+        verify(kafkaTemplate).send(eq("user.registered"), eq(userId.toString()), eventCaptor.capture());
 
         assertThat(eventCaptor.getValue()).isInstanceOf(UserRegisteredEvent.class);
         assertThat(eventCaptor.getValue().userId()).isEqualTo(userId);
@@ -57,7 +57,7 @@ class UserEventProducerTest {
         producer.publishLoginSuccess(userId, "ana@loja.com.br", "fp-abc");
 
         ArgumentCaptor<UserEvent> captor = ArgumentCaptor.forClass(UserEvent.class);
-        verify(kafkaTemplate).send(eq("user-events"), eq(userId.toString()), captor.capture());
+        verify(kafkaTemplate).send(eq("user.login.success"), eq(userId.toString()), captor.capture());
 
         assertThat(captor.getValue()).isInstanceOf(UserLoginSuccessEvent.class);
     }
@@ -86,7 +86,7 @@ class UserEventProducerTest {
         producer.publishLoginBlocked(null, "naoexiste@loja.com.br", Instant.now().plusSeconds(1800));
 
         // Should not throw — sentinel UUID is derived from email
-        verify(kafkaTemplate).send(eq("user-events"), anyString(), any());
+        verify(kafkaTemplate).send(eq("user.login.blocked"), anyString(), any());
     }
 
     @SuppressWarnings("unchecked")
@@ -99,7 +99,7 @@ class UserEventProducerTest {
         producer.publishTwoFactorEnabled(userId);
 
         ArgumentCaptor<UserEvent> captor = ArgumentCaptor.forClass(UserEvent.class);
-        verify(kafkaTemplate).send(eq("user-events"), eq(userId.toString()), captor.capture());
+        verify(kafkaTemplate).send(eq("user.2fa.enabled"), eq(userId.toString()), captor.capture());
 
         assertThat(captor.getValue()).isInstanceOf(UserTwoFactorEnabledEvent.class);
     }

@@ -86,7 +86,8 @@ class TwoFactorServiceTest {
         assertThat(resp.secret()).isNotBlank();
         assertThat(resp.recoveryCodes()).hasSize(8);
         assertThat(resp.qrCodeUrl()).isNotBlank();
-        verify(valueOps).set(anyString(), anyString(), any());
+        // setup stores both secret and recovery codes in Redis
+        verify(valueOps, org.mockito.Mockito.times(2)).set(anyString(), anyString(), any());
     }
 
     @Test
@@ -114,6 +115,18 @@ class TwoFactorServiceTest {
     void deve_lancar_InvalidTotpCodeException_quando_setup_expirado() {
         UUID userId = UUID.randomUUID();
         when(valueOps.get("2fa_setup:" + userId)).thenReturn(null);
+        when(valueOps.get("2fa_recovery:" + userId)).thenReturn(null);
+
+        assertThatThrownBy(() -> twoFactorService.confirm(userId, "123456"))
+                .isInstanceOf(InvalidTotpCodeException.class);
+    }
+
+    @Test
+    void deve_lancar_InvalidTotpCodeException_quando_recovery_expirado_no_confirm() {
+        UUID userId = UUID.randomUUID();
+        when(valueOps.get("2fa_setup:" + userId)).thenReturn("JBSWY3DPEHPK3PXP");
+        when(codeVerifier.isValidCode("JBSWY3DPEHPK3PXP", "123456")).thenReturn(true);
+        when(valueOps.get("2fa_recovery:" + userId)).thenReturn(null);
 
         assertThatThrownBy(() -> twoFactorService.confirm(userId, "123456"))
                 .isInstanceOf(InvalidTotpCodeException.class);
@@ -124,7 +137,11 @@ class TwoFactorServiceTest {
         UUID userId = UUID.randomUUID();
         User user = buildUser(userId, false);
 
+        String codesStr = "AAAA-BBBB-CCCC-DDDD,EEEE-FFFF-GGGG-HHHH,IIII-JJJJ-KKKK-LLLL," +
+                "MMMM-NNNN-OOOO-PPPP,QQQQ-RRRR-SSSS-TTTT,UUUU-VVVV-WWWW-XXXX," +
+                "YYYY-ZZZZ-0000-1111,2222-3333-4444-5555";
         when(valueOps.get("2fa_setup:" + userId)).thenReturn("JBSWY3DPEHPK3PXP");
+        when(valueOps.get("2fa_recovery:" + userId)).thenReturn(codesStr);
         when(codeVerifier.isValidCode("JBSWY3DPEHPK3PXP", "123456")).thenReturn(true);
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
         when(cryptoService.encrypt("JBSWY3DPEHPK3PXP")).thenReturn("encrypted-secret");
@@ -137,6 +154,7 @@ class TwoFactorServiceTest {
         assertThat(user.getTotpSecretEncrypted()).isEqualTo("encrypted-secret");
         verify(recoveryCodeRepository, org.mockito.Mockito.times(8)).save(any());
         verify(redis).delete("2fa_setup:" + userId);
+        verify(redis).delete("2fa_recovery:" + userId);
         verify(eventProducer).publishTwoFactorEnabled(userId);
     }
 
@@ -153,7 +171,11 @@ class TwoFactorServiceTest {
     @Test
     void deve_lancar_UserNotFoundException_no_confirm_quando_usuario_nao_existe() {
         UUID userId = UUID.randomUUID();
+        String codesStr = "AAAA-BBBB-CCCC-DDDD,EEEE-FFFF-GGGG-HHHH,IIII-JJJJ-KKKK-LLLL," +
+                "MMMM-NNNN-OOOO-PPPP,QQQQ-RRRR-SSSS-TTTT,UUUU-VVVV-WWWW-XXXX," +
+                "YYYY-ZZZZ-0000-1111,2222-3333-4444-5555";
         when(valueOps.get("2fa_setup:" + userId)).thenReturn("JBSWY3DPEHPK3PXP");
+        when(valueOps.get("2fa_recovery:" + userId)).thenReturn(codesStr);
         when(codeVerifier.isValidCode(any(), any())).thenReturn(true);
         when(userRepository.findById(userId)).thenReturn(Optional.empty());
 

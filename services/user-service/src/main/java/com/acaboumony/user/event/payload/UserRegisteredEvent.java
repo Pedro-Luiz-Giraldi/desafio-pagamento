@@ -14,8 +14,10 @@ import java.util.UUID;
 public record UserRegisteredEvent(
         UUID userId,
         String email,
+        String fullName,
         UserRole role,
         UUID merchantId,
+        String confirmationToken,
         Instant occurredAt
 ) implements UserEvent {
 

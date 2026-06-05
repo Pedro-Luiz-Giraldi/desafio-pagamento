@@ -121,7 +121,8 @@ public class AuthService {
                 user.getId().toString(),
                 Duration.ofHours(24));
 
-        userEventProducer.publishUserRegistered(user.getId(), user.getEmail(), user.getRole(), merchantId);
+        userEventProducer.publishUserRegistered(
+                user.getId(), user.getEmail(), user.getFullName(), user.getRole(), merchantId, confirmToken);
         log.info("User registered: userId={}, role={}", user.getId(), user.getRole());
 
         return new RegisterResponse(user.getId(), user.getEmail(), user.getRole().name(), merchantId, false);
@@ -229,6 +230,28 @@ public class AuthService {
         refreshTokenService.revoke(refreshToken);
         userAuditLogger.log(userId, "LOGOUT", null, null);
         log.info("Logout: userId={}", userId);
+    }
+
+    // ─── resendConfirmation ───────────────────────────────────────────────────
+
+    /**
+     * Reissues a confirmation token for a pending account.
+     * Idempotent — no-op if the account is already active or doesn't exist.
+     */
+    public void resendConfirmation(String email) {
+        User user = userRepository.findByEmail(email).orElse(null);
+        if (user == null || user.getStatus() != UserStatus.PENDING_EMAIL_CONFIRMATION) {
+            return;
+        }
+        String confirmToken = UUID.randomUUID().toString();
+        stringRedisTemplate.opsForValue().set(
+                "email_confirm:" + confirmToken,
+                user.getId().toString(),
+                Duration.ofHours(24));
+        userEventProducer.publishUserRegistered(
+                user.getId(), user.getEmail(), user.getFullName(), user.getRole(),
+                user.getMerchant() != null ? user.getMerchant().getId() : null, confirmToken);
+        log.info("Confirmation email resent: userId={}", user.getId());
     }
 
     // ─── Task 20: confirmEmail ────────────────────────────────────────────────

@@ -26,7 +26,6 @@ import java.util.UUID;
 public class UserEventProducer {
 
     private static final Logger log = LoggerFactory.getLogger(UserEventProducer.class);
-    static final String TOPIC = "user-events";
 
     private final KafkaTemplate<String, UserEvent> kafkaTemplate;
 
@@ -39,7 +38,7 @@ public class UserEventProducer {
      * Non-blocking — errors are logged asynchronously.
      */
     public void publish(UserEvent event) {
-        kafkaTemplate.send(TOPIC, event.userId().toString(), event)
+        kafkaTemplate.send(event.eventType(), event.userId().toString(), event)
                 .whenComplete((result, ex) -> {
                     if (ex != null) {
                         log.error("Failed to publish {} for userId={}: {}",
@@ -50,8 +49,9 @@ public class UserEventProducer {
                 });
     }
 
-    public void publishUserRegistered(UUID userId, String email, UserRole role, UUID merchantId) {
-        publish(new UserRegisteredEvent(userId, email, role, merchantId, Instant.now()));
+    public void publishUserRegistered(UUID userId, String email, String fullName,
+                                      UserRole role, UUID merchantId, String confirmationToken) {
+        publish(new UserRegisteredEvent(userId, email, fullName, role, merchantId, confirmationToken, Instant.now()));
     }
 
     public void publishLoginSuccess(UUID userId, String email, String deviceFingerprint) {

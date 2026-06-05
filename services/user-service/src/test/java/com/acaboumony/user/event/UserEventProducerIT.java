@@ -41,7 +41,7 @@ class UserEventProducerIT extends BaseIntegrationTest {
         props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
         props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
         consumer = new KafkaConsumer<>(props);
-        consumer.subscribe(List.of(UserEventProducer.TOPIC));
+        consumer.subscribe(List.of("user.registered", "user.login.success", "user.login.blocked", "user.2fa.enabled"));
         // Drain any pre-existing records
         consumer.poll(Duration.ofMillis(200));
     }
@@ -65,7 +65,7 @@ class UserEventProducerIT extends BaseIntegrationTest {
         UUID userId = UUID.randomUUID();
         UUID merchantId = UUID.randomUUID();
 
-        producer.publishUserRegistered(userId, "reg@test.com", UserRole.MERCHANT_OWNER, merchantId);
+        producer.publishUserRegistered(userId, "reg@test.com", "João Silva", UserRole.MERCHANT_OWNER, merchantId, "token-abc");
 
         List<ConsumerRecord<String, String>> records = pollRecords(1);
         assertThat(records).hasSize(1);
@@ -118,7 +118,7 @@ class UserEventProducerIT extends BaseIntegrationTest {
     void deve_usar_userId_como_key_da_mensagem_quando_publish_qualquer_tipo() throws Exception {
         UUID userId = UUID.randomUUID();
 
-        producer.publishUserRegistered(userId, "key@test.com", UserRole.CUSTOMER, null);
+        producer.publishUserRegistered(userId, "key@test.com", "Ana Lima", UserRole.CUSTOMER, null, "token-xyz");
 
         List<ConsumerRecord<String, String>> records = pollRecords(1);
         assertThat(records).hasSize(1);

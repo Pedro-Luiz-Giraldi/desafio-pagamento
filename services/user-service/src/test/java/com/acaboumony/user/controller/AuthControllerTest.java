@@ -38,6 +38,7 @@ import java.util.UUID;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.not;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -247,10 +248,19 @@ class AuthControllerTest {
     // ─── Resend confirmation ──────────────────────────────────────────────────
 
     @Test
-    void deve_retornar_501_NOT_IMPLEMENTED_SPRINT_2_quando_POST_resend_confirmation() throws Exception {
+    void deve_retornar_200_quando_POST_resend_confirmation_com_email_valido() throws Exception {
+        doNothing().when(authService).resendConfirmation("ana@loja.com.br");
+
+        mvc.perform(post("/api/v1/auth/resend-confirmation")
+                        .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"ana@loja.com.br\"}"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void deve_retornar_400_quando_POST_resend_confirmation_sem_body() throws Exception {
         mvc.perform(post("/api/v1/auth/resend-confirmation"))
-                .andExpect(status().isNotImplemented())
-                .andExpect(jsonPath("$.errorCode").value("NOT_IMPLEMENTED_SPRINT_2"));
+                .andExpect(status().isBadRequest());
     }
 
     // ─── GlobalExceptionHandler — branches adicionais ─────────────────────────

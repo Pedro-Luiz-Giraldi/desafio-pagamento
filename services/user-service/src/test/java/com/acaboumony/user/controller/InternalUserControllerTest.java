@@ -89,7 +89,7 @@ class InternalUserControllerTest {
     }
 
     @Test
-    void CE006_deve_retornar_200_mesmo_quando_usuario_esta_bloqueado() throws Exception {
+    void CE006_deve_retornar_404_quando_usuario_esta_bloqueado() throws Exception {
         User blocked = User.builder()
                 .email("bloqueado@loja.com")
                 .passwordHash("$2a$10$hash")
@@ -101,7 +101,6 @@ class InternalUserControllerTest {
 
         mvc.perform(get("/internal/users/{customerId}", customerId)
                         .header("X-Internal-Secret", TEST_SECRET))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.role").value("CUSTOMER"));
+                .andExpect(status().isNotFound());
     }
 }
