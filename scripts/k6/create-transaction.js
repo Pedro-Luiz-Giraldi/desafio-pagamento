@@ -29,7 +29,7 @@ export default function () {
   const res = http.post(`${PAYMENT_SERVICE}/api/v1/transactions`, payload, {
     headers: {
       'Content-Type': 'application/json',
-      'X-Customer-Email': 'cliente@teste.com',
+      'X-User-Email': 'cliente@teste.com',
       'X-Merchant-Id': merchantId,
       'X-Forwarded-For': `192.168.1.${Math.floor(Math.random() * 254) + 1}`,
     },

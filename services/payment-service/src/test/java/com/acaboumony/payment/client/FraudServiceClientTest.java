@@ -15,7 +15,7 @@ class FraudServiceClientTest {
 
     @BeforeEach
     void setUp() {
-        client = new FraudServiceClient("http://localhost:9999",
+        client = new FraudServiceClient("http://localhost:9999", "test-secret",
             CircuitBreakerRegistry.ofDefaults());
     }
 

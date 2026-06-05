@@ -6,6 +6,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.web.client.RestTemplateBuilder;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 
@@ -21,12 +24,15 @@ public class FraudServiceClient {
 
     private final RestTemplate restTemplate;
     private final String fraudServiceUrl;
+    private final String internalSecret;
     private final CircuitBreaker circuitBreaker;
 
     public FraudServiceClient(
             @Value("${fraud.service.url}") String fraudServiceUrl,
+            @Value("${payment.internal-secret:dev-secret}") String internalSecret,
             CircuitBreakerRegistry circuitBreakerRegistry) {
         this.fraudServiceUrl = fraudServiceUrl;
+        this.internalSecret = internalSecret;
         this.restTemplate = new RestTemplateBuilder()
             .setConnectTimeout(Duration.ofMillis(250))
             .setReadTimeout(Duration.ofMillis(250))
@@ -38,9 +44,13 @@ public class FraudServiceClient {
         try {
             return circuitBreaker.executeSupplier(() -> {
                 var start = Instant.now();
-                var response = restTemplate.postForEntity(
+                var headers = new HttpHeaders();
+                headers.set("X-Internal-Secret", internalSecret);
+                var entity = new HttpEntity<>(request, headers);
+                var response = restTemplate.exchange(
                     fraudServiceUrl + "/internal/fraud/score",
-                    request,
+                    HttpMethod.POST,
+                    entity,
                     FraudScoreResult.class
                 );
                 log.debug("Fraud check completed in {}ms",
