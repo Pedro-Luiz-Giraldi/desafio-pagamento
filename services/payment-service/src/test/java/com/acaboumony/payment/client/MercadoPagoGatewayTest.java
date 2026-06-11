@@ -9,7 +9,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class MercadoPagoGatewayTest {
 
-    private final MercadoPagoGateway gateway = new MercadoPagoGateway(800L,
+    private final MercadoPagoGateway gateway = new MercadoPagoGateway(800L, "",
         CircuitBreakerRegistry.ofDefaults());
 
     @Test
