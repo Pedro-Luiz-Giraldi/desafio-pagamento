@@ -1,6 +1,11 @@
 import axios from 'axios'
+import type { AxiosError, InternalAxiosRequestConfig } from 'axios'
 import { API_BASE_URL } from '@/lib/constants'
 import { useAuthStore } from '@/stores/auth.store'
+
+interface RetryConfig extends InternalAxiosRequestConfig {
+  _retry?: boolean
+}
 
 const client = axios.create({
   baseURL: API_BASE_URL,
@@ -18,9 +23,9 @@ client.interceptors.request.use((config) => {
 
 client.interceptors.response.use(
   (response) => response,
-  async (error) => {
-    const original = error.config
-    if (error.response?.status === 401 && !original._retry) {
+  async (error: AxiosError) => {
+    const original = error.config as RetryConfig | undefined
+    if (error.response?.status === 401 && original && !original._retry) {
       original._retry = true
       try {
         const { data } = await axios.post(
@@ -28,12 +33,14 @@ client.interceptors.response.use(
           {},
           { withCredentials: true },
         )
-        useAuthStore.getState().setToken(data.data.accessToken)
-        original.headers.Authorization = `Bearer ${data.data.accessToken}`
-        return client(original)
-      } catch {
+        const accessToken = data.data?.accessToken ?? data.accessToken
+        useAuthStore.getState().setToken(accessToken)
+        original.headers.Authorization = `Bearer ${accessToken}`
+        return client.request(original)
+      } catch (refreshError) {
         useAuthStore.getState().clear()
         window.location.href = '/login'
+        return Promise.reject(refreshError)
       }
     }
     return Promise.reject(error)
