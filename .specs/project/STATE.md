@@ -1,7 +1,7 @@
 # STATE — Frontend Merchant Dashboard
 
 **Última atualização:** 2026-06-22
-**Sessão ativa:** Onda 2 completa ✅ — Todos os gates passando
+**Sessão ativa:** Onda 3 completa ✅ — Todos os gates passando
 
 ---
 
@@ -11,7 +11,7 @@
 |------|--------|-------|
 | **Onda 1 — Fundação** | ✅ Completa | T-01 a T-04 |
 | **Onda 2 — Auth** | ✅ Completa | T-05 a T-12 |
-| **Onda 3 — App Shell** | ⏳ Pendente | T-13 a T-15 |
+| **Onda 3 — App Shell** | ✅ Completa | T-13 a T-15 |
 | **Onda 4 — Features** | ⏳ Pendente | T-16 a T-24 |
 | **Onda 5 — Finalização** | ⏳ Pendente | T-25 a T-27 |
 
@@ -91,4 +91,47 @@
 | `npm test` | ✅ 41 testes passando em 15 arquivos (4.32s) |
 
 **Ambiente:** Node v22.22.3 via nvm no WSL
+
+## Onda 3 — Execução Completa ✅
+
+### T-13: Authenticated Layout ✓
+- `AuthenticatedLayout` implementado com sidebar e topbar
+- Sidebar com logo, navegação (Dashboard, Pedidos, Transações, Configurações) e footer
+- Topbar com título e área de usuário (nome, email, botão Sair)
+- Logout flow: chama `authApi.logout()`, limpa `authStore`, redireciona para `/login`
+- NavLink com highlight visual para rota ativa
+- Testes criados e passando
+
+### T-14: Protected Route Guard ✓
+- `ProtectedRoute` implementado
+- Verifica `accessToken` no `useAuthStore`
+- Redireciona para `/login` se não autenticado
+- Renderiza children se autenticado
+- Testes criados e passando (usando MemoryRouter)
+
+### T-15: Dashboard Home (Placeholder) ✓
+- `DashboardPage` implementado
+- Exibe boas-vindas com nome do usuário
+- Cards placeholder para Dashboard, Pedidos, Transações
+- Card "Em Construção" com lista de features futuras
+- Testes criados e passando
+
+### Rotas Atualizadas ✓
+- `App.tsx` atualizado com rotas protegidas
+- `/` → Dashboard (protegido)
+- `/orders`, `/transactions`, `/settings` → Placeholders (protegidos)
+- Rotas públicas mantidas: `/login`, `/register`, `/confirm-email`, `/2fa-verify`
+
+### Gates verificados (Onda 3) — ✅ TODOS PASSANDO
+| Gate | Resultado |
+|------|-----------|
+| `npx tsc -b` | ✅ Limpo (zero erros) |
+| `npm run build` | ✅ 318.14 KB JS (gzip: 102.77 KB), 17.83 KB CSS (gzip: 4.37 KB) |
+| `npm test` | ✅ 53 testes passando em 18 arquivos (5.14s) |
+
+**Novos arquivos:**
+- `src/components/protected-route.tsx` + test
+- `src/layouts/authenticated-layout.tsx` + test
+- `src/pages/dashboard/dashboard-page.tsx` + test
+- `.specs/features/app-shell/spec.md`
 
