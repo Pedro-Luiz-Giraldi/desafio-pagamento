@@ -48,21 +48,21 @@ Estrutura de navegação para usuários autenticados: sidebar com menu, topbar c
 **Descrição:** Dropdown com perfil e logout  
 **Critérios de Aceitação:**
 - Exibe nome e email do usuário
-- Botão "SairhApi.logou" que cht()` e `authStore.clear()`
+- Botão "Sair" que chama `authApi.logout()` e `authStore.clear()`
 - Redireciona para `/login` após logout
 
 ## Requisitos Não-Funcionais
 
-### [NFR-AS-01] Resama `autponsividade
+### [NFR-AS-01] Responsividade
 - Sidebar colapsável em mobile (<768px) — **deferred para pós-MVP**
 - Layout funcional em 360px+ (sidebar fixa por enquanto)
 
 ### [NFR-AS-02] Acessibilidade
-- Navegação por teclado (Tab, Link ativo visualmente destacado
+- Navegação por teclado (Tab e Enter)
+- Link ativo visualmente destacado
 - Contraste WCAG AA
 
-### Enter)
-- [NFR-AS-03] Performance
+### [NFR-AS-03] Performance
 - Sem re-renders desnecessários (React.memo onde aplicável)
 - Zustand shallow equality para seletores
 
@@ -116,13 +116,14 @@ src/
 │   └── dashboard/
 │       ├── dashboard-page.tsx
 │       └── dashboard-page.test.tsx
-└── Appnvalida .tsx (atualizar rotas)
+└── App.tsx (atualizar rotas)
 ```
 
 **Ícones:** Usar emojis por enquanto (sem biblioteca de ícones no MVP)
 
-**Estado:** `usser` e `accessToken` — reusar
+**Estado:** `user` e `accessToken` — reutilizar do auth.store
 
-**Logourefresh token no backend)
+**Logout flow:**
+1. Chamar `authApi.logout()` (invalida refresh token no backend)
 2. Chamar `authStore.clear()` (limpa estado local)
 3. Redirecionar para `/login`
