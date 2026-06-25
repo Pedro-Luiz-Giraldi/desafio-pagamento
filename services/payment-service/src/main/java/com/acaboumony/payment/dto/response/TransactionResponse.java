@@ -16,7 +16,8 @@ public record TransactionResponse(
     Integer installments,
     Long processingTimeMs,
     Instant createdAt,
-    List<RefundSummary> refunds
+    List<RefundSummary> refunds,
+    String customerName
 ) {
     public record RefundSummary(
         String refundId,

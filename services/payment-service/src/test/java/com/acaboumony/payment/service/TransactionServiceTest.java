@@ -57,7 +57,7 @@ class TransactionServiceTest {
             "test@testuser.com");
         validRequest = new com.acaboumony.payment.dto.request.TransactionRequest(
             8990L, "BRL", UUID.randomUUID(), UUID.randomUUID(),
-            "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6", "visa", 1, UUID.randomUUID()
+            "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6", "visa", 1, UUID.randomUUID(), null
         );
         lenient().when(orderClient.validateOrder(any(), any())).thenReturn(
             new OrderServiceClient.OrderValidationResult(true, null));
@@ -74,7 +74,7 @@ class TransactionServiceTest {
     void processTransaction_whenInvalidCurrency_returnsInvalidCurrency() {
         var request = new com.acaboumony.payment.dto.request.TransactionRequest(
             8990L, "USD", UUID.randomUUID(), UUID.randomUUID(),
-            "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6", "visa", 1, UUID.randomUUID()
+            "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6", "visa", 1, UUID.randomUUID(), null
         );
 
         TransactionResult result = service.processTransaction(request, "test@test.com", UUID.randomUUID(), "127.0.0.1");
@@ -448,7 +448,7 @@ class TransactionServiceTest {
         var merchantId = UUID.randomUUID();
         var cacheKey = "transaction:txn_001:" + merchantId;
         var txResponse = new TransactionResponse("txn_001", 123L, UUID.randomUUID(),
-            "APPROVED", 5000L, "BRL", "visa", "1234", 1, 500L, null, null);
+            "APPROVED", 5000L, "BRL", "visa", "1234", 1, 500L, null, null, null);
         var cachedJson = objectMapper.writeValueAsString(txResponse);
 
         when(redis.opsForValue()).thenReturn(valueOps);
@@ -471,12 +471,13 @@ class TransactionServiceTest {
         tx.setMpPaymentId(123L);
 
         var txResponse = new TransactionResponse("txn_001", 123L, tx.getOrderId(),
-            "APPROVED", 8990L, "BRL", "visa", "1234", 1, 500L, null, null);
+            "APPROVED", 8990L, "BRL", "visa", "1234", 1, 500L, null, null, null);
 
         when(redis.opsForValue()).thenReturn(valueOps);
         when(valueOps.get(cacheKey)).thenReturn(null);
         when(transactionRepository.findByTransactionId("txn_001")).thenReturn(Optional.of(tx));
         when(mapper.toResponse(tx)).thenReturn(txResponse);
+        when(userClient.fetchUserDetails(any())).thenReturn(Optional.empty());
 
         var result = service.findById("txn_001", merchantId);
 
@@ -512,11 +513,12 @@ class TransactionServiceTest {
             8990L, "BRL", "visa", TransactionStatus.APPROVED, UUID.randomUUID());
 
         var txResponse = new TransactionResponse("txn_001", 123L, tx.getOrderId(),
-            "APPROVED", 8990L, "BRL", "visa", "1234", 1, 500L, null, null);
+            "APPROVED", 8990L, "BRL", "visa", "1234", 1, 500L, null, null, null);
 
         when(redis.opsForValue()).thenThrow(new RuntimeException("Redis down"));
         when(transactionRepository.findByTransactionId("txn_001")).thenReturn(Optional.of(tx));
         when(mapper.toResponse(tx)).thenReturn(txResponse);
+        when(userClient.fetchUserDetails(any())).thenReturn(Optional.empty());
 
         var result = service.findById("txn_001", merchantId);
 
@@ -528,7 +530,7 @@ class TransactionServiceTest {
     void findById_oneArg_withCacheHit_returnsCachedResponse() throws Exception {
         var cacheKey = "transaction:txn_001";
         var txResponse = new TransactionResponse("txn_001", 123L, UUID.randomUUID(),
-            "APPROVED", 5000L, "BRL", "visa", "1234", 1, 500L, null, null);
+            "APPROVED", 5000L, "BRL", "visa", "1234", 1, 500L, null, null, null);
         var cachedJson = objectMapper.writeValueAsString(txResponse);
 
         when(redis.opsForValue()).thenReturn(valueOps);
@@ -549,12 +551,13 @@ class TransactionServiceTest {
             8990L, "BRL", "visa", TransactionStatus.APPROVED, UUID.randomUUID());
 
         var txResponse = new TransactionResponse("txn_001", 123L, tx.getOrderId(),
-            "APPROVED", 8990L, "BRL", "visa", "1234", 1, 500L, null, null);
+            "APPROVED", 8990L, "BRL", "visa", "1234", 1, 500L, null, null, null);
 
         when(redis.opsForValue()).thenReturn(valueOps);
         when(valueOps.get(cacheKey)).thenReturn(null);
         when(transactionRepository.findByTransactionId("txn_001")).thenReturn(Optional.of(tx));
         when(mapper.toResponse(tx)).thenReturn(txResponse);
+        when(userClient.fetchUserDetails(any())).thenReturn(Optional.empty());
 
         var result = service.findById("txn_001");
 
@@ -571,11 +574,12 @@ class TransactionServiceTest {
             8990L, "BRL", "visa", TransactionStatus.APPROVED, UUID.randomUUID());
 
         var txResponse = new TransactionResponse("txn_001", 123L, tx.getOrderId(),
-            "APPROVED", 8990L, "BRL", "visa", "1234", 1, 500L, null, null);
+            "APPROVED", 8990L, "BRL", "visa", "1234", 1, 500L, null, null, null);
 
         when(redis.opsForValue()).thenThrow(new RuntimeException("Redis down"));
         when(transactionRepository.findByTransactionId("txn_001")).thenReturn(Optional.of(tx));
         when(mapper.toResponse(tx)).thenReturn(txResponse);
+        when(userClient.fetchUserDetails(any())).thenReturn(Optional.empty());
 
         var result = service.findById("txn_001");
 
@@ -663,7 +667,7 @@ class TransactionServiceTest {
     void processTransaction_whenInstallmentsNull_usesDefaultOne() {
         var request = new com.acaboumony.payment.dto.request.TransactionRequest(
             8990L, "BRL", UUID.randomUUID(), UUID.randomUUID(),
-            "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6", "visa", null, UUID.randomUUID()
+            "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6", "visa", null, UUID.randomUUID(), null
         );
 
         mockRedisForNewRequest();

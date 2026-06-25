@@ -9,6 +9,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 
+import java.util.HashMap;
 import java.util.Map;
 
 @Component
@@ -34,32 +35,32 @@ public class TransactionEventConsumer {
                 .orElse("") : "";
 
         if (event.customerEmail() != null) {
+            var customerVars = new HashMap<String, Object>();
+            customerVars.put("formattedAmount", formattedAmount);
+            customerVars.put("cardBrand", event.cardBrand() != null ? event.cardBrand() : "");
+            customerVars.put("cardLastFour", event.cardLastFour() != null ? event.cardLastFour() : "****");
+            customerVars.put("installments", event.installments() != null ? event.installments() : 1);
+            customerVars.put("itemsHtml", itemsHtml);
+            customerVars.put("orderId", event.orderId().toString());
             emailService.sendEmail(
                     event.customerEmail(),
                     "Pagamento confirmado — Pedido #" + event.orderId(),
                     "payment-confirmed-customer",
-                    Map.of(
-                            "formattedAmount", formattedAmount,
-                            "cardBrand", event.cardBrand(),
-                            "cardLastFour", event.cardLastFour(),
-                            "installments", event.installments(),
-                            "itemsHtml", itemsHtml,
-                            "orderId", event.orderId().toString()
-                    ),
+                    customerVars,
                     event.transactionId() + "-customer"
             );
         }
 
         if (event.merchantEmail() != null) {
+            var merchantVars = new HashMap<String, Object>();
+            merchantVars.put("formattedAmount", formattedAmount);
+            merchantVars.put("itemsHtml", itemsHtml);
+            merchantVars.put("orderId", event.orderId().toString());
             emailService.sendEmail(
                     event.merchantEmail(),
                     "Nova venda confirmada — " + formattedAmount,
                     "payment-confirmed-merchant",
-                    Map.of(
-                            "formattedAmount", formattedAmount,
-                            "itemsHtml", itemsHtml,
-                            "orderId", event.orderId().toString()
-                    ),
+                    merchantVars,
                     event.transactionId() + "-merchant"
             );
         }

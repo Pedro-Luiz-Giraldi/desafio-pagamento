@@ -75,7 +75,8 @@ class InternalUserControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.email").value("ana@loja.com"))
                 .andExpect(jsonPath("$.role").value("CUSTOMER"))
-                .andExpect(jsonPath("$.id").value(customerId.toString()));
+                .andExpect(jsonPath("$.id").value(customerId.toString()))
+                .andExpect(jsonPath("$.fullName").value("Ana Lima"));
     }
 
     @Test

@@ -48,7 +48,7 @@ class IdempotencyServiceTest {
     @Test
     void store_serializes_and_stores_in_redis() {
         UUID orderId = UUID.randomUUID();
-        TransactionResponse response = new TransactionResponse("txn_abc", 123L, orderId, "APPROVED", null, null, null, null, null, 200L, null, null);
+        TransactionResponse response = new TransactionResponse("txn_abc", 123L, orderId, "APPROVED", null, null, null, null, null, 200L, null, null, null);
 
         idempotencyService.store(IDEMPOTENCY_KEY, response);
 

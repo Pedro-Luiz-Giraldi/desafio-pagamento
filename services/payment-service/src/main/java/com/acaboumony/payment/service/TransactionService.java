@@ -196,10 +196,14 @@ public class TransactionService {
             log.warn("Redis unavailable to set idempotency result: {}", e.getMessage());
         }
 
+        var merchantEmail = userClient.fetchUserDetails(merchantId)
+            .map(UserServiceClient.UserDetails::email)
+            .orElse(null);
+
         var completedEvent = new TransactionCompletedEvent(
             transactionId, gatewayResult.mpPaymentId(), request.orderId(),
-            request.customerId(), merchantId, customerEmail, null,
-            request.amountInCents(), "BRL", null, null,
+            request.customerId(), merchantId, customerEmail, merchantEmail,
+            request.amountInCents(), "BRL", transaction.getCardBrand(), transaction.getCardLastFour(),
             request.installments(), null, Instant.now(), "APPROVED"
         );
         eventProducer.publishCompleted(completedEvent);
@@ -229,7 +233,7 @@ public class TransactionService {
                 if (!tx.getMerchantId().equals(merchantId)) {
                     return null;
                 }
-                var response = mapper.toResponse(tx);
+                var response = enrich(mapper.toResponse(tx), tx.getCustomerId());
                 try {
                     redis.opsForValue().set(cacheKey, objectMapper.writeValueAsString(response), Duration.ofSeconds(60));
                 } catch (Exception e) {
@@ -252,7 +256,7 @@ public class TransactionService {
 
         return transactionRepository.findByTransactionId(transactionId)
             .map(tx -> {
-                var response = mapper.toResponse(tx);
+                var response = enrich(mapper.toResponse(tx), tx.getCustomerId());
                 try {
                     redis.opsForValue().set(cacheKey, objectMapper.writeValueAsString(response), Duration.ofSeconds(60));
                 } catch (Exception e) {
@@ -261,6 +265,31 @@ public class TransactionService {
                 return response;
             })
             .orElse(null);
+    }
+
+    private TransactionResponse enrich(TransactionResponse base, UUID customerId) {
+        var customerName = userClient.fetchUserDetails(customerId)
+            .map(UserServiceClient.UserDetails::fullName)
+            .orElse(null);
+        return new TransactionResponse(
+            base.transactionId(), base.mpPaymentId(), base.orderId(),
+            base.status(), base.amountInCents(), base.currency(),
+            base.cardBrand(), base.cardLastFour(), base.installments(),
+            base.processingTimeMs(), base.createdAt(), base.refunds(),
+            customerName
+        );
+    }
+
+    public Page<TransactionSummary> findByMerchant(UUID merchantId, Pageable pageable) {
+        return transactionRepository
+            .findByMerchantIdOrderByCreatedAtDesc(merchantId, pageable)
+            .map(TransactionSummary::from);
+    }
+
+    public Page<TransactionSummary> findByMerchantAndStatus(UUID merchantId, TransactionStatus status, Pageable pageable) {
+        return transactionRepository
+            .findByMerchantIdAndStatusOrderByCreatedAtDesc(merchantId, status, pageable)
+            .map(TransactionSummary::from);
     }
 
     public Page<TransactionSummary> findByCustomer(UUID customerId, UUID merchantId, Pageable pageable) {

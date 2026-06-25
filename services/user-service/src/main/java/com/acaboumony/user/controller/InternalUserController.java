@@ -47,7 +47,8 @@ public class InternalUserController {
         return ResponseEntity.ok(new InternalUserResponse(
                 user.getId(),
                 user.getEmail(),
-                user.getRole().name()
+                user.getRole().name(),
+                user.getFullName()
         ));
     }
 }

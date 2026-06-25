@@ -67,7 +67,37 @@ public class UserServiceClient {
         }
     }
 
-    public record UserValidationResult(boolean valid, String errorCode) {}
+    public java.util.Optional<UserDetails> fetchUserDetails(UUID userId) {
+        try {
+            return circuitBreaker.executeSupplier(() -> {
+                var headers = new HttpHeaders();
+                headers.set("X-Internal-Secret", internalSecret);
+                headers.set("X-User-Id", userId.toString());
 
-    private record UserResponse(UUID id, String email, String role) {}
+                var entity = new HttpEntity<Void>(headers);
+                ResponseEntity<UserResponse> response = restTemplate.exchange(
+                    userServiceUrl + "/internal/users/{userId}",
+                    HttpMethod.GET,
+                    entity,
+                    UserResponse.class,
+                    userId
+                );
+
+                return response.getBody() != null
+                    ? java.util.Optional.of(new UserDetails(
+                        response.getBody().id(),
+                        response.getBody().email(),
+                        response.getBody().fullName()))
+                    : java.util.Optional.empty();
+            });
+        } catch (Exception e) {
+            log.warn("Could not fetch user details for {}: {}", userId, e.getMessage());
+            return java.util.Optional.empty();
+        }
+    }
+
+    public record UserValidationResult(boolean valid, String errorCode) {}
+    public record UserDetails(UUID id, String email, String fullName) {}
+
+    private record UserResponse(UUID id, String email, String role, String fullName) {}
 }

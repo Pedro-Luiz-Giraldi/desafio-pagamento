@@ -9,5 +9,6 @@ import org.mapstruct.Mapping;
 public interface TransactionMapper {
 
     @Mapping(target = "refunds", ignore = true)
+    @Mapping(target = "customerName", ignore = true)
     TransactionResponse toResponse(Transaction transaction);
 }

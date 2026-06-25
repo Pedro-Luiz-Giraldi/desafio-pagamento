@@ -137,7 +137,8 @@ public class RefundService {
             eventProducer.publishRefunded(refundedEvent);
         }
 
-        logAudit(transactionId, request.requestedBy(), "REFUND_" + status, refundAmount + "|" + request.reason().name());
+        logAudit(transactionId, request.requestedBy(), "REFUND_" + status,
+            "{\"amountInCents\":" + refundAmount + ",\"reason\":\"" + request.reason().name() + "\"}");
 
         log.info("Refund {} for transaction {}: {}", refundId, transactionId, status);
         return toResponse(refund);

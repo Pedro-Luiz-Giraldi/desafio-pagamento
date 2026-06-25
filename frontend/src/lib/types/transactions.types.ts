@@ -15,16 +15,19 @@ export type RefundReason =
 export type RefundStatus = 'PENDING' | 'APPROVED' | 'REJECTED'
 
 export interface Transaction {
-  id: string
-  orderId: string
-  customerId: string
+  transactionId: string
+  orderId?: string
+  customerId?: string
+  customerName?: string
   amountInCents: number
   currency: string
   status: TransactionStatus
+  cardBrand?: string
+  cardLastFour?: string
   errorCode?: string
   processingTimeMs: number
   createdAt: string
-  updatedAt: string
+  updatedAt?: string
 }
 
 export interface RefundEntry {
@@ -56,12 +59,19 @@ export interface CreateTransactionRequest {
   orderId: string
   cardToken: string
   amountInCents: number
+  currency: string
+  customerId: string
+  merchantId: string
+  paymentMethodId: string
   installments?: number
+  idempotencyKey: string
 }
 
 export interface CreateRefundRequest {
   amountInCents: number
   reason: RefundReason
+  requestedBy: string
+  idempotencyKey: string
 }
 
 export const REFUND_REASON_LABELS: Record<RefundReason, string> = {

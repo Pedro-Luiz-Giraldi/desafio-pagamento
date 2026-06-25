@@ -19,7 +19,7 @@ class DtoRecordsTest {
     void transactionRequest_allAccessors() {
         var request = new TransactionRequest(
             5000L, "BRL", UUID.randomUUID(), UUID.randomUUID(),
-            "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6", "visa", 3, UUID.randomUUID()
+            "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6", "visa", 3, UUID.randomUUID(), null
         );
 
         assertEquals(5000L, request.amountInCents());
@@ -36,7 +36,7 @@ class DtoRecordsTest {
     void transactionRequest_nullInstallments_defaultsToOne() {
         var request = new TransactionRequest(
             5000L, "BRL", UUID.randomUUID(), UUID.randomUUID(),
-            "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6", "visa", null, UUID.randomUUID()
+            "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6", "visa", null, UUID.randomUUID(), null
         );
 
         assertEquals(1, request.installments());
@@ -71,7 +71,7 @@ class DtoRecordsTest {
         var response = new TransactionResponse(
             "txn_001", 123L, UUID.randomUUID(), "APPROVED",
             5000L, "BRL", "visa", "1234", 1, 150L,
-            Instant.now(), refunds
+            Instant.now(), refunds, "Ana Lima"
         );
 
         assertEquals("txn_001", response.transactionId());
@@ -86,6 +86,7 @@ class DtoRecordsTest {
         assertEquals(150L, response.processingTimeMs());
         assertNotNull(response.createdAt());
         assertEquals(1, response.refunds().size());
+        assertEquals("Ana Lima", response.customerName());
     }
 
     @Test

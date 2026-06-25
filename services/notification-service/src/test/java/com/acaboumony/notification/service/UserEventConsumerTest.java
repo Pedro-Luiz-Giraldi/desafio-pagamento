@@ -42,7 +42,7 @@ class UserEventConsumerTest {
 
         verify(emailService).sendEmail(
                 eq("test@test.com"),
-                eq("Bem-vindo(a) à Acabou o Mony! Confirme seu email"),
+                eq("Seu código de confirmação — Acabou o Mony"),
                 eq("welcome"),
                 any(),
                 anyString()

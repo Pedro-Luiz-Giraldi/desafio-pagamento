@@ -67,7 +67,7 @@ export default function TransactionDetailPage() {
   const isMerchant = role === 'MERCHANT_OWNER'
   const canRefund = isMerchant && REFUNDABLE_STATUSES.has(tx.status)
 
-  const sortedRefunds = [...tx.refunds].sort(
+  const sortedRefunds = [...(tx.refunds ?? [])].sort(
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   )
 
@@ -77,7 +77,7 @@ export default function TransactionDetailPage() {
         <Button variant="ghost" size="icon" onClick={() => navigate(ROUTES.TRANSACTIONS)}>
           <ArrowLeft className="h-4 w-4" />
         </Button>
-        <h1 className="text-2xl font-semibold">Transação #{tx.id.slice(0, 8)}</h1>
+        <h1 className="text-2xl font-semibold">Transação #{tx.transactionId.slice(0, 8)}</h1>
       </div>
 
       {/* Main info */}
@@ -110,11 +110,11 @@ export default function TransactionDetailPage() {
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Pedido</span>
-              <span className="font-mono text-xs">{tx.orderId.slice(0, 8)}</span>
+              <span className="font-mono text-xs">{tx.orderId?.slice(0, 8) ?? '—'}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Cliente</span>
-              <span className="font-mono text-xs">{tx.customerId.slice(0, 8)}</span>
+              <span>{tx.customerName ?? '—'}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Cartão</span>
@@ -156,7 +156,7 @@ export default function TransactionDetailPage() {
 
       {showRefundModal && tx && (
         <RefundModal
-          transactionId={tx.id}
+          transactionId={tx.transactionId}
           availableForRefundInCents={tx.availableForRefundInCents}
           onSuccess={handleRefundSuccess}
           onClose={() => setShowRefundModal(false)}

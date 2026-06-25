@@ -47,7 +47,7 @@ class TransactionControllerTest {
     void processTransaction_whenValidRequest_returns201() throws Exception {
         var request = new TransactionRequest(
             8990L, "BRL", UUID.randomUUID(), UUID.randomUUID(),
-            "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6", "visa", 1, UUID.randomUUID()
+            "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6", "visa", 1, UUID.randomUUID(), null
         );
 
         when(transactionService.processTransaction(any(), anyString(), any(), anyString()))
@@ -68,7 +68,7 @@ class TransactionControllerTest {
     void processTransaction_whenInvalidAmount_returns400() throws Exception {
         var request = new TransactionRequest(
             0L, "BRL", UUID.randomUUID(), UUID.randomUUID(),
-            "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6", "visa", 1, UUID.randomUUID()
+            "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6", "visa", 1, UUID.randomUUID(), null
         );
 
         mockMvc.perform(post("/api/v1/transactions")
@@ -107,7 +107,7 @@ class TransactionControllerTest {
         var merchantId = UUID.randomUUID();
         var tx = new TransactionResponse("txn_001", 123L, UUID.randomUUID(),
             "APPROVED", 5000L, "BRL", "visa", "1234",
-            1, 500L, null, null);
+            1, 500L, null, null, null);
         when(transactionService.findById("txn_001", merchantId)).thenReturn(Optional.of(tx));
 
         mockMvc.perform(get("/api/v1/transactions/txn_001")
@@ -130,7 +130,7 @@ class TransactionControllerTest {
                 .param("customerId", customerId.toString())
                 .header("X-Merchant-Id", merchantId.toString()))
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$.data[0].transactionId").value("txn_001"));
+            .andExpect(jsonPath("$.data.content[0].transactionId").value("txn_001"));
     }
 
     @Test
@@ -236,17 +236,17 @@ class TransactionControllerTest {
                 .param("size", "10")
                 .header("X-Merchant-Id", merchantId.toString()))
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$.data[0].transactionId").value("txn_001"))
-            .andExpect(jsonPath("$.data[1].transactionId").value("txn_002"))
-            .andExpect(jsonPath("$.meta.page").value(0))
-            .andExpect(jsonPath("$.meta.size").value(2));
+            .andExpect(jsonPath("$.data.content[0].transactionId").value("txn_001"))
+            .andExpect(jsonPath("$.data.content[1].transactionId").value("txn_002"))
+            .andExpect(jsonPath("$.data.page").value(0))
+            .andExpect(jsonPath("$.data.size").value(2));
     }
 
     @Test
     void processTransaction_withRequestId_includesInResponse() throws Exception {
         var request = new TransactionRequest(
             8990L, "BRL", UUID.randomUUID(), UUID.randomUUID(),
-            "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6", "visa", 1, UUID.randomUUID()
+            "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6", "visa", 1, UUID.randomUUID(), null
         );
         var requestId = UUID.randomUUID().toString();
 
@@ -268,7 +268,7 @@ class TransactionControllerTest {
     void processTransaction_duplicate_returns200() throws Exception {
         var request = new TransactionRequest(
             8990L, "BRL", UUID.randomUUID(), UUID.randomUUID(),
-            "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6", "visa", 1, UUID.randomUUID()
+            "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6", "visa", 1, UUID.randomUUID(), null
         );
 
         when(transactionService.processTransaction(any(), anyString(), any(), anyString()))
@@ -288,7 +288,7 @@ class TransactionControllerTest {
     void processTransaction_rateLimitExceeded_returns429() throws Exception {
         var request = new TransactionRequest(
             8990L, "BRL", UUID.randomUUID(), UUID.randomUUID(),
-            "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6", "visa", 1, UUID.randomUUID()
+            "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6", "visa", 1, UUID.randomUUID(), null
         );
 
         when(transactionService.processTransaction(any(), anyString(), any(), anyString()))
@@ -308,7 +308,7 @@ class TransactionControllerTest {
     void processTransaction_cardDeclined_returns422() throws Exception {
         var request = new TransactionRequest(
             8990L, "BRL", UUID.randomUUID(), UUID.randomUUID(),
-            "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6", "visa", 1, UUID.randomUUID()
+            "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6", "visa", 1, UUID.randomUUID(), null
         );
 
         when(transactionService.processTransaction(any(), anyString(), any(), anyString()))
@@ -330,7 +330,7 @@ class TransactionControllerTest {
         var requestId = UUID.randomUUID().toString();
         var tx = new TransactionResponse("txn_001", 123L, UUID.randomUUID(),
             "APPROVED", 5000L, "BRL", "visa", "1234",
-            1, 500L, null, null);
+            1, 500L, null, null, null);
         when(transactionService.findById("txn_001", merchantId)).thenReturn(Optional.of(tx));
 
         mockMvc.perform(get("/api/v1/transactions/txn_001")
@@ -365,7 +365,7 @@ class TransactionControllerTest {
     void processTransaction_invalidCurrency_returns400() throws Exception {
         var request = new TransactionRequest(
             8990L, "USD", UUID.randomUUID(), UUID.randomUUID(),
-            "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6", "visa", 1, UUID.randomUUID()
+            "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6", "visa", 1, UUID.randomUUID(), null
         );
 
         when(transactionService.processTransaction(any(), anyString(), any(), anyString()))
@@ -385,7 +385,7 @@ class TransactionControllerTest {
     void processTransaction_duplicateIdempotency_returns409() throws Exception {
         var request = new TransactionRequest(
             8990L, "BRL", UUID.randomUUID(), UUID.randomUUID(),
-            "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6", "visa", 1, UUID.randomUUID()
+            "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6", "visa", 1, UUID.randomUUID(), null
         );
 
         when(transactionService.processTransaction(any(), anyString(), any(), anyString()))
@@ -405,7 +405,7 @@ class TransactionControllerTest {
     void processTransaction_orderNotFound_returns404() throws Exception {
         var request = new TransactionRequest(
             8990L, "BRL", UUID.randomUUID(), UUID.randomUUID(),
-            "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6", "visa", 1, UUID.randomUUID()
+            "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6", "visa", 1, UUID.randomUUID(), null
         );
 
         when(transactionService.processTransaction(any(), anyString(), any(), anyString()))
@@ -425,7 +425,7 @@ class TransactionControllerTest {
     void processTransaction_orderNotPending_returns422() throws Exception {
         var request = new TransactionRequest(
             8990L, "BRL", UUID.randomUUID(), UUID.randomUUID(),
-            "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6", "visa", 1, UUID.randomUUID()
+            "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6", "visa", 1, UUID.randomUUID(), null
         );
 
         when(transactionService.processTransaction(any(), anyString(), any(), anyString()))
@@ -445,7 +445,7 @@ class TransactionControllerTest {
     void processTransaction_gatewayTimeout_returns503() throws Exception {
         var request = new TransactionRequest(
             8990L, "BRL", UUID.randomUUID(), UUID.randomUUID(),
-            "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6", "visa", 1, UUID.randomUUID()
+            "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6", "visa", 1, UUID.randomUUID(), null
         );
 
         when(transactionService.processTransaction(any(), anyString(), any(), anyString()))
@@ -465,7 +465,7 @@ class TransactionControllerTest {
     void processTransaction_unknownError_returns500() throws Exception {
         var request = new TransactionRequest(
             8990L, "BRL", UUID.randomUUID(), UUID.randomUUID(),
-            "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6", "visa", 1, UUID.randomUUID()
+            "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6", "visa", 1, UUID.randomUUID(), null
         );
 
         when(transactionService.processTransaction(any(), anyString(), any(), anyString()))

@@ -30,7 +30,29 @@ async function getTransactions(
 }
 
 async function getTransactionById(id: string): Promise<ApiResult<TransactionDetail>> {
-  return api<TransactionDetail>(`/api/v1/transactions/${id}`)
+  const result = await api<Record<string, unknown>>(`/api/v1/transactions/${id}`)
+  if (!result.ok) return result
+
+  const raw = result.data
+  const refunds = (raw.refunds as Array<{ amountInCents?: number; processedAt?: string }>) ?? []
+  const totalRefundedInCents = refunds.reduce((sum, r) => sum + (r.amountInCents ?? 0), 0)
+  const availableForRefundInCents = ((raw.amountInCents as number) ?? 0) - totalRefundedInCents
+
+  const normalizedRefunds = refunds.map(r => ({
+    ...r,
+    createdAt: (r as Record<string, unknown>).createdAt ?? r.processedAt ?? '',
+  }))
+
+  return {
+    ok: true,
+    meta: result.meta,
+    data: {
+      ...(raw as object),
+      refunds: normalizedRefunds,
+      totalRefundedInCents,
+      availableForRefundInCents,
+    } as TransactionDetail,
+  }
 }
 
 async function createTransaction(

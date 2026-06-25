@@ -4,6 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { transactionsService } from '@features/transactions/services/transactionsService'
 import { useIdempotencyKey } from '@shared/hooks/useIdempotencyKey'
+import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -43,6 +44,7 @@ type FormData = { amountDisplay: string; reason: RefundReason }
 
 export function RefundModal({ transactionId, availableForRefundInCents, onSuccess, onClose }: RefundModalProps) {
   const { key: idempotencyKey } = useIdempotencyKey()
+  const { user } = useAuth()
   const [serverError, setServerError] = useState<{ message: string; retryable: boolean } | null>(null)
   const [succeeded, setSucceeded] = useState(false)
 
@@ -58,6 +60,7 @@ export function RefundModal({ transactionId, availableForRefundInCents, onSucces
     resolver: zodResolver(schema),
     defaultValues: {
       amountDisplay: (availableForRefundInCents / 100).toFixed(2).replace('.', ','),
+      reason: undefined,
     },
   })
 
@@ -69,7 +72,12 @@ export function RefundModal({ transactionId, availableForRefundInCents, onSucces
 
     const result = await transactionsService.createRefund(
       transactionId,
-      { amountInCents, reason: data.reason },
+      {
+        amountInCents,
+        reason: data.reason,
+        requestedBy: user!.id,
+        idempotencyKey,
+      },
       idempotencyKey
     )
 

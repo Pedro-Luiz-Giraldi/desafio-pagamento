@@ -28,12 +28,12 @@ public sealed interface TransactionResult permits
             case Approved a -> new TransactionResponse(
                 a.transactionId(), a.mpPaymentId(), a.orderId(),
                 "APPROVED", null, null, null, null, null,
-                a.processingTimeMs(), null, null
+                a.processingTimeMs(), null, null, null
             );
             case Failed f -> new TransactionResponse(
                 null, null, null, "FAILURE",
                 null, null, null, null, null,
-                f.processingTimeMs(), null, null
+                f.processingTimeMs(), null, null, null
             );
         };
     }
