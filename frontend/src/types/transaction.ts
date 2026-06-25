@@ -34,8 +34,10 @@ export interface RefundSummary {
   createdAt: string
 }
 
+export type RefundReason = 'CUSTOMER_REQUEST' | 'DUPLICATE' | 'FRAUD' | 'PRODUCT_NOT_DELIVERED'
+
 export interface RefundRequest {
   amountInCents: number
-  reason: 'CUSTOMER_REQUEST' | 'DUPLICATE' | 'FRAUD' | 'PRODUCT_NOT_DELIVERED'
+  reason: RefundReason
   requestedBy: string
 }

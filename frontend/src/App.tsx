@@ -7,6 +7,13 @@ import { LoginPage } from '@/pages/auth/login-page'
 import { RegisterPage } from '@/pages/auth/register-page'
 import { TwoFactorPage } from '@/pages/auth/two-factor-page'
 import { DashboardPage } from '@/pages/dashboard/dashboard-page'
+import { OrdersListPage } from '@/pages/orders/orders-list-page'
+import { OrderCreatePage } from '@/pages/orders/order-create-page'
+import { OrderDetailPage } from '@/pages/orders/order-detail-page'
+import { TransactionsListPage } from '@/pages/transactions/transactions-list-page'
+import { TransactionDetailPage } from '@/pages/transactions/transaction-detail-page'
+import { SettingsPage } from '@/pages/settings/settings-page'
+import { TwoFactorSetupPage } from '@/pages/settings/two-factor-setup-page'
 
 export default function App() {
   return (
@@ -34,7 +41,27 @@ export default function App() {
           element={
             <ProtectedRoute>
               <AuthenticatedLayout>
-                <div className="text-center text-gray-600">Pedidos — Em desenvolvimento</div>
+                <OrdersListPage />
+              </AuthenticatedLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/orders/new"
+          element={
+            <ProtectedRoute>
+              <AuthenticatedLayout>
+                <OrderCreatePage />
+              </AuthenticatedLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/orders/:id"
+          element={
+            <ProtectedRoute>
+              <AuthenticatedLayout>
+                <OrderDetailPage />
               </AuthenticatedLayout>
             </ProtectedRoute>
           }
@@ -44,7 +71,17 @@ export default function App() {
           element={
             <ProtectedRoute>
               <AuthenticatedLayout>
-                <div className="text-center text-gray-600">Transações — Em desenvolvimento</div>
+                <TransactionsListPage />
+              </AuthenticatedLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/transactions/:id"
+          element={
+            <ProtectedRoute>
+              <AuthenticatedLayout>
+                <TransactionDetailPage />
               </AuthenticatedLayout>
             </ProtectedRoute>
           }
@@ -54,7 +91,17 @@ export default function App() {
           element={
             <ProtectedRoute>
               <AuthenticatedLayout>
-                <div className="text-center text-gray-600">Configurações — Em desenvolvimento</div>
+                <SettingsPage />
+              </AuthenticatedLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/settings/2fa"
+          element={
+            <ProtectedRoute>
+              <AuthenticatedLayout>
+                <TwoFactorSetupPage />
               </AuthenticatedLayout>
             </ProtectedRoute>
           }

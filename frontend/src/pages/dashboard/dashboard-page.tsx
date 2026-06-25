@@ -1,8 +1,16 @@
 import { useAuthStore } from '@/stores/auth.store'
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui'
+import { useOrdersList } from '@/hooks/use-orders'
+import { useTransactionsList } from '@/hooks/use-transactions'
+import { useNavigate } from 'react-router-dom'
+import { Card, CardHeader, CardTitle, CardContent, Button, Skeleton } from '@/components/ui'
+import { StatusBadge } from '@/components/status-badge'
+import { formatCents, formatDate } from '@/lib/utils'
 
 export function DashboardPage() {
+  const navigate = useNavigate()
   const user = useAuthStore((state) => state.user)
+  const { data: pendingOrders, isLoading: loadingOrders } = useOrdersList({ status: 'PENDING', size: 5 })
+  const { data: recentTxns, isLoading: loadingTxns } = useTransactionsList({ size: 5 })
 
   return (
     <div className="space-y-6">
@@ -18,54 +26,108 @@ export function DashboardPage() {
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         <Card>
           <CardHeader>
-            <CardTitle>📊 Dashboard</CardTitle>
+            <CardTitle>📦 Pedidos Pendentes</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-gray-600">
-              Métricas e gráficos em desenvolvimento
-            </p>
+            {loadingOrders ? (
+              <Skeleton className="h-8 w-16" />
+            ) : (
+              <p className="text-3xl font-bold text-gray-900">{pendingOrders?.meta.totalElements ?? 0}</p>
+            )}
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle>📦 Pedidos</CardTitle>
+            <CardTitle>💳 Transações Recentes</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-gray-600">
-              Gestão de pedidos em desenvolvimento
-            </p>
+            {loadingTxns ? (
+              <Skeleton className="h-8 w-16" />
+            ) : (
+              <p className="text-3xl font-bold text-gray-900">{recentTxns?.meta.totalElements ?? 0}</p>
+            )}
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle>💳 Transações</CardTitle>
+            <CardTitle>⚡ Ações Rápidas</CardTitle>
           </CardHeader>
-          <CardContent>
-            <p className="text-sm text-gray-600">
-              Histórico de transações em desenvolvimento
-            </p>
+          <CardContent className="space-y-2">
+            <Button className="w-full" onClick={() => navigate('/orders/new')}>Novo Pedido</Button>
+            <Button variant="secondary" className="w-full" onClick={() => navigate('/transactions')}>Ver Transações</Button>
           </CardContent>
         </Card>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>🚧 Em Construção</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-gray-600">
-            Este dashboard está sendo desenvolvido. Em breve você terá acesso a:
-          </p>
-          <ul className="mt-3 space-y-2 text-sm text-gray-600">
-            <li>• Visão geral de vendas e receitas</li>
-            <li>• Pedidos recentes e status</li>
-            <li>• Transações e histórico de pagamentos</li>
-            <li>• Configurações de conta e 2FA</li>
-          </ul>
-        </CardContent>
-      </Card>
+      <div className="grid gap-6 md:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>📦 Últimos Pedidos Pendentes</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {loadingOrders ? (
+              <div className="space-y-2"><Skeleton className="h-6 w-full" /><Skeleton className="h-6 w-full" /></div>
+            ) : !pendingOrders?.data.length ? (
+              <p className="text-sm text-gray-500">Nenhum pedido pendente</p>
+            ) : (
+              <div className="space-y-3">
+                {pendingOrders.data.map((order) => (
+                  <div
+                    key={order.orderId}
+                    onClick={() => navigate(`/orders/${order.orderId}`)}
+                    className="flex items-center justify-between cursor-pointer hover:bg-gray-50 rounded p-2 -mx-2"
+                  >
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">{order.items.length} item(ns)</p>
+                      <p className="text-xs text-gray-500">{formatDate(order.createdAt)}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-semibold">{formatCents(order.totalInCents)}</p>
+                      <StatusBadge status={order.status} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>💳 Últimas Transações</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {loadingTxns ? (
+              <div className="space-y-2"><Skeleton className="h-6 w-full" /><Skeleton className="h-6 w-full" /></div>
+            ) : !recentTxns?.data.length ? (
+              <p className="text-sm text-gray-500">Nenhuma transação recente</p>
+            ) : (
+              <div className="space-y-3">
+                {recentTxns.data.map((txn) => (
+                  <div
+                    key={txn.transactionId}
+                    onClick={() => navigate(`/transactions/${txn.transactionId}`)}
+                    className="flex items-center justify-between cursor-pointer hover:bg-gray-50 rounded p-2 -mx-2"
+                  >
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">
+                        {txn.cardBrand ? `${txn.cardBrand} ****${txn.cardLastFour ?? ''}` : 'Transação'}
+                      </p>
+                      <p className="text-xs text-gray-500">{formatDate(txn.createdAt)}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-semibold">{formatCents(txn.amountInCents)}</p>
+                      <StatusBadge status={txn.status} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   )
 }
