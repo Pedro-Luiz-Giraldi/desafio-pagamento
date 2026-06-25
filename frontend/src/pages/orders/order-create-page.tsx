@@ -59,7 +59,7 @@ export function OrderCreatePage() {
   const total = items.reduce((sum, item) => sum + Number(item.quantity) * Number(item.unitPriceInCents), 0)
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold text-gray-900">Novo Pedido</h2>
       </div>
@@ -71,16 +71,16 @@ export function OrderCreatePage() {
         <CardContent>
           <form aria-label="Formulario de pedido" className="space-y-4" onSubmit={handleSubmit}>
             {items.map((item, index) => (
-              <div key={index} className="space-y-3 rounded-md border border-gray-200 p-4">
+              <div key={index} className="space-y-3 rounded-md border border-gray-200 p-3 md:p-4">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium text-gray-700">Item {index + 1}</span>
                   {items.length > 1 && (
-                    <Button variant="ghost" onClick={() => removeItem(index)} type="button">
+                    <Button variant="ghost" onClick={() => removeItem(index)} type="button" className="text-sm">
                       Remover
                     </Button>
                   )}
                 </div>
-                <div className="grid gap-3 sm:grid-cols-2">
+                <div className="grid gap-3 md:grid-cols-2">
                   <Input label="Produto ID" value={item.productId} onChange={(e) => updateItem(index, 'productId', e.target.value)} />
                   <Input label="Descrição" value={item.description} onChange={(e) => updateItem(index, 'description', e.target.value)} />
                   <Input label="Quantidade" type="number" min={1} value={item.quantity} onChange={(e) => updateItem(index, 'quantity', parseInt(e.target.value) || 0)} />
@@ -89,7 +89,7 @@ export function OrderCreatePage() {
               </div>
             ))}
 
-            <Button variant="secondary" onClick={addItem} type="button">
+            <Button variant="secondary" onClick={addItem} type="button" className="w-full sm:w-auto">
               + Adicionar Item
             </Button>
 
@@ -97,11 +97,11 @@ export function OrderCreatePage() {
               Total: {(total / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
             </div>
 
-            <div className="flex justify-end gap-3">
-              <Button variant="secondary" onClick={() => navigate('/orders')} type="button">
+            <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
+              <Button variant="secondary" onClick={() => navigate('/orders')} type="button" className="w-full sm:w-auto">
                 Cancelar
               </Button>
-              <Button type="submit" disabled={createOrder.isPending}>
+              <Button type="submit" disabled={createOrder.isPending} className="w-full sm:w-auto">
                 {createOrder.isPending ? <Spinner label="Criando" /> : 'Criar Pedido'}
               </Button>
             </div>

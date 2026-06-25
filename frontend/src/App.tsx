@@ -14,6 +14,7 @@ import { TransactionsListPage } from '@/pages/transactions/transactions-list-pag
 import { TransactionDetailPage } from '@/pages/transactions/transaction-detail-page'
 import { SettingsPage } from '@/pages/settings/settings-page'
 import { TwoFactorSetupPage } from '@/pages/settings/two-factor-setup-page'
+import { NotFoundPage } from '@/pages/not-found-page'
 
 export default function App() {
   return (
@@ -106,6 +107,9 @@ export default function App() {
             </ProtectedRoute>
           }
         />
+
+        {/* 404 Catch-all */}
+        <Route path="*" element={<NotFoundPage />} />
       </Routes>
       <Toaster />
     </BrowserRouter>
