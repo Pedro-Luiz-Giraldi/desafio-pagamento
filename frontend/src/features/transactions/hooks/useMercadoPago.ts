@@ -38,17 +38,24 @@ export function useMercadoPago() {
   ): Promise<{ token: string } | { error: string }> {
     if (!mpRef.current) return { error: 'SDK não carregado' }
     try {
+      const year = data.cardExpirationYear.length === 4
+        ? data.cardExpirationYear.slice(-2)
+        : data.cardExpirationYear
+
       const result = await mpRef.current.createCardToken({
-        cardNumber: data.cardNumber,
+        cardNumber: data.cardNumber.replace(/\s/g, ''),
         cardholderName: data.cardholderName,
         cardExpirationMonth: data.cardExpirationMonth,
-        cardExpirationYear: data.cardExpirationYear,
+        cardExpirationYear: year,
         securityCode: data.securityCode,
       })
       return { token: result.id }
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Erro ao tokenizar cartão'
-      return { error: msg }
+      if (err && typeof err === 'object' && 'message' in err) {
+        return { error: String((err as { message: unknown }).message) }
+      }
+      if (err instanceof Error) return { error: err.message }
+      return { error: 'Erro ao tokenizar cartão' }
     }
   }
 

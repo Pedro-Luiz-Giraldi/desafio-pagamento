@@ -65,7 +65,8 @@ export default function OrderDetailPage() {
     setCancelError(null)
     const result = await ordersService.cancelOrder(id)
     if (result.ok) {
-      setOrder(result.data)
+      const refreshed = await ordersService.getOrderById(id)
+      if (refreshed.ok) setOrder(refreshed.data)
       setShowCancelDialog(false)
     } else {
       setCancelError('Não foi possível cancelar o pedido. Tente novamente.')

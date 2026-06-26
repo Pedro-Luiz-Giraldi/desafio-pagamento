@@ -12,7 +12,8 @@ public record TransactionRequest(
     @NotBlank @Pattern(regexp = "^[a-fA-F0-9]{32}$") String cardToken,
     @NotBlank String paymentMethodId,
     @Min(1) @Max(12) Integer installments,
-    @NotNull UUID idempotencyKey
+    @NotNull UUID idempotencyKey,
+    UUID merchantId
 ) {
     public TransactionRequest {
         if (installments == null) installments = 1;

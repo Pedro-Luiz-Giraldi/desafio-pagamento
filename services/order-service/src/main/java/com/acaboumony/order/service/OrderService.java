@@ -127,7 +127,7 @@ public class OrderService {
             orderPage = statusFilter != null
                     ? orderRepository.findByStatus(OrderStatus.valueOf(statusFilter), pageable)
                     : orderRepository.findAll(pageable);
-        } else if ("MERCHANT".equals(role)) {
+        } else if ("MERCHANT_OWNER".equals(role) || "MERCHANT".equals(role)) {
             if (merchantId == null) {
                 throw new InsufficientPermissionsException("MERCHANT role requires X-Merchant-Id header");
             }
@@ -215,7 +215,7 @@ public class OrderService {
         if ("ADMIN".equals(role)) {
             return;
         }
-        if ("MERCHANT".equals(role)) {
+        if ("MERCHANT_OWNER".equals(role) || "MERCHANT".equals(role)) {
             if (merchantId == null) {
                 throw new InsufficientPermissionsException("MERCHANT role requires X-Merchant-Id header");
             }

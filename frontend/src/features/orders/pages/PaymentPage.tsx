@@ -8,6 +8,7 @@ import { ordersService } from '@features/orders/services/ordersService'
 import { transactionsService } from '@features/transactions/services/transactionsService'
 import { useMercadoPago } from '@features/transactions/hooks/useMercadoPago'
 import { useIdempotencyKey } from '@shared/hooks/useIdempotencyKey'
+import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -36,11 +37,21 @@ const cardSchema = z.object({
 
 type CardForm = z.infer<typeof cardSchema>
 
+function detectPaymentMethod(cardNumber: string): string {
+  const n = cardNumber.replace(/\D/g, '')
+  if (/^3[47]/.test(n)) return 'amex'
+  if (/^(636368|438935|504175|451416|636297|5067|4576|4011)/.test(n)) return 'elo'
+  if (/^5[0-5]/.test(n) || /^2[2-7]/.test(n)) return 'master'
+  if (/^4/.test(n)) return 'visa'
+  return 'credit_card'
+}
+
 export default function PaymentPage() {
   const { id: orderId } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const { user } = useAuth()
   const { createCardToken, isReady } = useMercadoPago()
-  const { reset: resetKey } = useIdempotencyKey()
+  const { key: idempotencyKey, reset: resetKey } = useIdempotencyKey()
 
   const [order, setOrder] = useState<Order | null>(null)
   const [loadingOrder, setLoadingOrder] = useState(true)
@@ -92,7 +103,12 @@ export default function PaymentPage() {
       orderId: order.id,
       cardToken: tokenResult.token,
       amountInCents: order.amountInCents,
+      currency: order.currency,
+      customerId: user!.id,
+      merchantId: order.merchantId,
+      paymentMethodId: detectPaymentMethod(data.cardNumber),
       installments: 1,
+      idempotencyKey,
     })
 
     if (result.ok) {

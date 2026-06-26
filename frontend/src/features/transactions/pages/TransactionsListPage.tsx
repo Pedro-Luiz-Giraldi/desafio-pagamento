@@ -114,7 +114,7 @@ export default function TransactionsListPage() {
       <DataTable
         loading={loading}
         data={transactions}
-        keyExtractor={t => t.id}
+        keyExtractor={t => t.transactionId}
         emptyMessage={emptyMessage}
         page={pageParam}
         totalPages={totalPages}
@@ -129,7 +129,7 @@ export default function TransactionsListPage() {
             key: 'id',
             header: 'ID',
             render: t => (
-              <span className="font-mono text-xs text-muted-foreground">#{t.id.slice(0, 8)}</span>
+              <span className="font-mono text-xs text-muted-foreground">#{t.transactionId.slice(0, 8)}</span>
             ),
           },
           {
@@ -143,11 +143,11 @@ export default function TransactionsListPage() {
             render: t => <StatusBadge status={t.status} />,
           },
           {
-            key: 'customerId',
-            header: 'Cliente',
+            key: 'card',
+            header: 'Cartão',
             render: t => (
               <span className="font-mono text-xs text-muted-foreground">
-                {t.customerId.slice(0, 8)}
+                {t.cardBrand && t.cardLastFour ? `${t.cardBrand.toUpperCase()} •••• ${t.cardLastFour}` : '—'}
               </span>
             ),
           },
@@ -158,7 +158,7 @@ export default function TransactionsListPage() {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => navigate(ROUTES.TRANSACTION_DETAIL.replace(':id', t.id))}
+                onClick={() => navigate(ROUTES.TRANSACTION_DETAIL.replace(':id', t.transactionId))}
               >
                 Ver detalhes
               </Button>

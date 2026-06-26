@@ -2,6 +2,38 @@ import { api } from '@lib/api'
 import { API_BASE_URL } from '@lib/constants'
 import type { UserProfile } from '@lib/types/auth.types'
 
+// Backend returns { userId, fullName, email, role, merchantId, twoFactorEnabled, createdAt }
+interface BackendUserProfile {
+  userId: string
+  fullName: string
+  email: string
+  role: UserProfile['role']
+  merchantId: string | null
+  twoFactorEnabled: boolean
+}
+
+async function fetchUserProfile(accessToken: string): Promise<UserProfile | null> {
+  try {
+    const resp = await fetch(`${API_BASE_URL}/api/v1/users/me`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    })
+    if (!resp.ok) return null
+    const body = await resp.json()
+    const data: BackendUserProfile = body?.data ?? body
+    return {
+      id: data.userId,
+      name: data.fullName,
+      email: data.email,
+      role: data.role,
+      merchantId: data.merchantId ?? null,
+      twoFactorEnabled: data.twoFactorEnabled,
+      emailConfirmed: true,
+    }
+  } catch {
+    return null
+  }
+}
+
 // --- Login ---
 
 export type LoginServiceResult =
@@ -12,7 +44,6 @@ export type LoginServiceResult =
 async function login(email: string, password: string): Promise<LoginServiceResult> {
   const result = await api<{
     accessToken?: string
-    user?: UserProfile
     twoFactorRequired?: boolean
     twoFactorToken?: string
   }>('/api/v1/auth/login', { method: 'POST', body: { email, password } })
@@ -23,7 +54,12 @@ async function login(email: string, password: string): Promise<LoginServiceResul
   if (result.data.twoFactorRequired) {
     return { type: '2fa', twoFactorToken: result.data.twoFactorToken! }
   }
-  return { type: 'success', accessToken: result.data.accessToken!, user: result.data.user! }
+  const accessToken = result.data.accessToken!
+  const user = await fetchUserProfile(accessToken)
+  if (!user) {
+    return { type: 'error', errorCode: 'INTERNAL_ERROR', message: 'Não foi possível carregar o perfil.' }
+  }
+  return { type: 'success', accessToken, user }
 }
 
 // --- Logout ---
@@ -44,8 +80,10 @@ async function refreshToken(): Promise<{ accessToken: string; user: UserProfile 
     if (!response.ok) return null
     const body = await response.json()
     const data = body?.data ?? body
-    if (!data?.accessToken || !data?.user) return null
-    return { accessToken: data.accessToken, user: data.user }
+    if (!data?.accessToken) return null
+    const user = await fetchUserProfile(data.accessToken)
+    if (!user) return null
+    return { accessToken: data.accessToken, user }
   } catch {
     return null
   }
@@ -57,10 +95,16 @@ export type RegisterResult =
   | { type: 'success' }
   | { type: 'error'; errorCode: string; message: string }
 
-async function register(name: string, email: string, password: string): Promise<RegisterResult> {
+async function register(
+  name: string,
+  email: string,
+  password: string,
+  role: 'CUSTOMER' | 'MERCHANT_OWNER',
+  merchantData?: { companyName: string; cnpj: string },
+): Promise<RegisterResult> {
   const result = await api('/api/v1/auth/register', {
     method: 'POST',
-    body: { name, email, password },
+    body: { fullName: name, email, password, role, ...merchantData },
   })
   if (!result.ok) {
     return { type: 'error', errorCode: result.error.errorCode, message: result.error.message }
@@ -72,9 +116,10 @@ async function resendConfirmation(email: string): Promise<void> {
   await api('/api/v1/auth/resend-confirmation', { method: 'POST', body: { email } })
 }
 
-async function confirmEmail(token: string): Promise<RegisterResult> {
-  const result = await api(`/api/v1/auth/confirm-email?token=${encodeURIComponent(token)}`, {
+async function confirmEmail(email: string, code: string): Promise<RegisterResult> {
+  const result = await api('/api/v1/auth/confirm-email', {
     method: 'POST',
+    body: { email, code },
   })
   if (!result.ok) {
     return { type: 'error', errorCode: result.error.errorCode, message: result.error.message }

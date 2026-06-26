@@ -44,7 +44,7 @@ public class AuthController {
 
     @PostMapping("/confirm-email")
     public ResponseEntity<Void> confirmEmail(@Valid @RequestBody ConfirmEmailRequest req) {
-        authService.confirmEmail(req.token());
+        authService.confirmEmail(req.email(), req.code());
         return ResponseEntity.ok().build();
     }
 

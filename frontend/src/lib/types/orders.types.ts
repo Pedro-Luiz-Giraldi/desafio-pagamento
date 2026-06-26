@@ -20,6 +20,7 @@ export interface Order {
 }
 
 export interface CreateOrderRequest {
+  merchantId: string
   amountInCents: number
   currency: string
   description: string

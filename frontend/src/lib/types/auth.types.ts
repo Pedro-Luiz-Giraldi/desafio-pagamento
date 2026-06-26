@@ -5,6 +5,7 @@ export interface UserProfile {
   name: string
   email: string
   role: UserRole
+  merchantId: string | null
   twoFactorEnabled: boolean
   emailConfirmed: boolean
 }

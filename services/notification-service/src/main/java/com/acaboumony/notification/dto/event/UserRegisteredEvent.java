@@ -8,6 +8,6 @@ public record UserRegisteredEvent(
         String email,
         String fullName,
         String role,
-        String confirmationToken,
+        String confirmationCode,
         Instant registeredAt
 ) {}

@@ -50,8 +50,8 @@ public class UserEventProducer {
     }
 
     public void publishUserRegistered(UUID userId, String email, String fullName,
-                                      UserRole role, UUID merchantId, String confirmationToken) {
-        publish(new UserRegisteredEvent(userId, email, fullName, role, merchantId, confirmationToken, Instant.now()));
+                                      UserRole role, UUID merchantId, String confirmationCode) {
+        publish(new UserRegisteredEvent(userId, email, fullName, role, merchantId, confirmationCode, Instant.now()));
     }
 
     public void publishLoginSuccess(UUID userId, String email, String deviceFingerprint) {

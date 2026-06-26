@@ -306,34 +306,42 @@ class AuthServiceTest {
 
     @Test
     void deve_confirmar_email_e_ativar_usuario() {
-        UUID userId = UUID.randomUUID();
         User user = userWithId(UserRole.CUSTOMER, UserStatus.PENDING_EMAIL_CONFIRMATION);
+        String email = "ana@loja.com.br";
+        String code = "123456";
 
-        when(valueOps.get("email_confirm:valid-token")).thenReturn(userId.toString());
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(valueOps.get("email_confirm:" + email)).thenReturn(code);
+        when(userRepository.findByEmail(email)).thenReturn(Optional.of(user));
         when(userRepository.save(any())).thenReturn(user);
 
-        authService.confirmEmail("valid-token");
+        authService.confirmEmail(email, code);
 
         assertThat(user.getStatus()).isEqualTo(UserStatus.ACTIVE);
-        verify(stringRedisTemplate).delete("email_confirm:valid-token");
+        verify(stringRedisTemplate).delete("email_confirm:" + email);
     }
 
     @Test
-    void deve_lancar_EmailConfirmTokenInvalidException_quando_token_expirado() {
-        when(valueOps.get("email_confirm:expired")).thenReturn(null);
+    void deve_lancar_EmailConfirmTokenInvalidException_quando_codigo_expirado() {
+        when(valueOps.get("email_confirm:user@test.com")).thenReturn(null);
 
-        assertThatThrownBy(() -> authService.confirmEmail("expired"))
+        assertThatThrownBy(() -> authService.confirmEmail("user@test.com", "000000"))
+                .isInstanceOf(EmailConfirmTokenInvalidException.class);
+    }
+
+    @Test
+    void deve_lancar_EmailConfirmTokenInvalidException_quando_codigo_incorreto() {
+        when(valueOps.get("email_confirm:user@test.com")).thenReturn("999999");
+
+        assertThatThrownBy(() -> authService.confirmEmail("user@test.com", "000000"))
                 .isInstanceOf(EmailConfirmTokenInvalidException.class);
     }
 
     @Test
     void deve_lancar_EmailConfirmTokenInvalidException_quando_usuario_nao_encontrado() {
-        UUID userId = UUID.randomUUID();
-        when(valueOps.get(anyString())).thenReturn(userId.toString());
-        when(userRepository.findById(userId)).thenReturn(Optional.empty());
+        when(valueOps.get("email_confirm:user@test.com")).thenReturn("123456");
+        when(userRepository.findByEmail("user@test.com")).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> authService.confirmEmail("valid-token"))
+        assertThatThrownBy(() -> authService.confirmEmail("user@test.com", "123456"))
                 .isInstanceOf(EmailConfirmTokenInvalidException.class);
     }
 

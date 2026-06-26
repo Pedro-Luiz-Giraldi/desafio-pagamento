@@ -27,12 +27,11 @@ public class UserEventConsumer {
         log.info("Received user.registered event for email={}", event.email());
         var variables = Map.<String, Object>of(
                 "fullName", event.fullName(),
-                "confirmationToken", event.confirmationToken(),
-                "appBaseUrl", getAppBaseUrl()
+                "confirmationCode", event.confirmationCode()
         );
         emailService.sendEmail(
                 event.email(),
-                "Bem-vindo(a) à Acabou o Mony! Confirme seu email",
+                "Seu código de confirmação — Acabou o Mony",
                 "welcome",
                 variables,
                 event.userId().toString()

@@ -17,4 +17,6 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
     Page<Transaction> findByCustomerIdAndMerchantIdOrderByCreatedAtDesc(UUID customerId, UUID merchantId, Pageable pageable);
     Page<Transaction> findByCustomerIdAndMerchantIdAndStatusOrderByCreatedAtDesc(UUID customerId, UUID merchantId, TransactionStatus status, Pageable pageable);
     Optional<Transaction> findByTransactionIdAndMerchantId(String transactionId, UUID merchantId);
+    Page<Transaction> findByMerchantIdOrderByCreatedAtDesc(UUID merchantId, Pageable pageable);
+    Page<Transaction> findByMerchantIdAndStatusOrderByCreatedAtDesc(UUID merchantId, TransactionStatus status, Pageable pageable);
 }

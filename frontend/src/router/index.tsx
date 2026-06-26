@@ -25,7 +25,13 @@ import TransactionsListPage from '@features/transactions/pages/TransactionsListP
 import TransactionDetailPage from '@features/transactions/pages/TransactionDetailPage'
 import RefundPage from '@features/transactions/pages/RefundPage'
 
+import ProductsListPage from '@features/products/pages/ProductsListPage'
+import CheckoutPage from '@features/checkout/pages/CheckoutPage'
+
 export const router = createBrowserRouter([
+  // Public standalone pages
+  { path: ROUTES.CHECKOUT, element: <CheckoutPage /> },
+
   // Auth routes (public, redirect if already logged in)
   {
     element: <AuthLayout />,
@@ -67,6 +73,7 @@ export const router = createBrowserRouter([
           {
             element: <RoleRoute allowedRoles={['MERCHANT_OWNER']} />,
             children: [
+              { path: ROUTES.PRODUCTS, element: <ProductsListPage /> },
               { path: ROUTES.TRANSACTIONS, element: <TransactionsListPage /> },
               { path: ROUTES.TRANSACTION_DETAIL, element: <TransactionDetailPage /> },
               { path: ROUTES.REFUND, element: <RefundPage /> },

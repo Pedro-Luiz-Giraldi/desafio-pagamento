@@ -38,9 +38,15 @@ public class TransactionController {
     public ResponseEntity<Map<String, Object>> processTransaction(
             @Valid @RequestBody TransactionRequest request,
             @RequestHeader("X-User-Email") String customerEmail,
-            @RequestHeader("X-Merchant-Id") UUID merchantId,
-            @RequestHeader("X-Forwarded-For") String ipAddress,
+            @RequestHeader(value = "X-Merchant-Id", required = false) UUID headerMerchantId,
+            @RequestHeader(value = "X-Forwarded-For", required = false, defaultValue = "unknown") String ipAddress,
             @RequestHeader(value = "X-Request-Id", required = false) String requestId) {
+
+        UUID merchantId = headerMerchantId != null ? headerMerchantId : request.merchantId();
+        if (merchantId == null) {
+            return ResponseEntity.badRequest()
+                .body(error("MISSING_MERCHANT_ID", "merchantId is required", false, 0, requestId));
+        }
 
         var result = transactionService.processTransaction(request, customerEmail, merchantId, ipAddress);
 
@@ -105,27 +111,37 @@ public class TransactionController {
 
     @GetMapping
     public ResponseEntity<Map<String, Object>> listTransactions(
-            @RequestParam UUID customerId,
+            @RequestParam(required = false) UUID customerId,
             @RequestHeader("X-Merchant-Id") UUID merchantId,
             @RequestParam(required = false) String status,
             @RequestHeader(value = "X-Request-Id", required = false) String requestId,
             Pageable pageable) {
         Page<TransactionSummary> page;
-        if (status != null && !status.isBlank()) {
-            page = transactionService.findByCustomerAndStatus(customerId, merchantId,
+        if (customerId != null) {
+            if (status != null && !status.isBlank()) {
+                page = transactionService.findByCustomerAndStatus(customerId, merchantId,
+                    TransactionStatus.valueOf(status.toUpperCase()), pageable);
+            } else {
+                page = transactionService.findByCustomer(customerId, merchantId, pageable);
+            }
+        } else if (status != null && !status.isBlank()) {
+            page = transactionService.findByMerchantAndStatus(merchantId,
                 TransactionStatus.valueOf(status.toUpperCase()), pageable);
         } else {
-            page = transactionService.findByCustomer(customerId, merchantId, pageable);
+            page = transactionService.findByMerchant(merchantId, pageable);
         }
+        var pagedData = new java.util.LinkedHashMap<String, Object>();
+        pagedData.put("content", page.getContent());
+        pagedData.put("totalElements", page.getTotalElements());
+        pagedData.put("totalPages", page.getTotalPages());
+        pagedData.put("page", page.getNumber());
+        pagedData.put("size", page.getSize());
+
         var meta = new java.util.LinkedHashMap<String, Object>();
         meta.put("timestamp", Instant.now().toString());
         if (requestId != null) meta.put("requestId", requestId);
-        meta.put("page", page.getNumber());
-        meta.put("size", page.getSize());
-        meta.put("pageSize", pageable.getPageSize());
-        meta.put("total", page.getTotalElements());
         return ResponseEntity.ok(Map.of(
-            "data", page.getContent(),
+            "data", pagedData,
             "meta", meta
         ));
     }

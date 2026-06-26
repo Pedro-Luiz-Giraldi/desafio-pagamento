@@ -28,6 +28,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * Core authentication service: register, authenticate, refresh, logout, confirm-email.
@@ -114,15 +115,15 @@ public class AuthService {
             merchantId = merchant.getId();
         }
 
-        // Store email confirmation token in Redis (TTL 24h)
-        String confirmToken = UUID.randomUUID().toString();
+        // Store 6-digit confirmation code in Redis keyed by email (TTL 15 min)
+        String confirmCode = String.format("%06d", ThreadLocalRandom.current().nextInt(1_000_000));
         stringRedisTemplate.opsForValue().set(
-                "email_confirm:" + confirmToken,
-                user.getId().toString(),
-                Duration.ofHours(24));
+                "email_confirm:" + user.getEmail(),
+                confirmCode,
+                Duration.ofMinutes(15));
 
         userEventProducer.publishUserRegistered(
-                user.getId(), user.getEmail(), user.getFullName(), user.getRole(), merchantId, confirmToken);
+                user.getId(), user.getEmail(), user.getFullName(), user.getRole(), merchantId, confirmCode);
         log.info("User registered: userId={}, role={}", user.getId(), user.getRole());
 
         return new RegisterResponse(user.getId(), user.getEmail(), user.getRole().name(), merchantId, false);
@@ -265,35 +266,34 @@ public class AuthService {
         if (user == null || user.getStatus() != UserStatus.PENDING_EMAIL_CONFIRMATION) {
             return;
         }
-        String confirmToken = UUID.randomUUID().toString();
+        String confirmCode = String.format("%06d", ThreadLocalRandom.current().nextInt(1_000_000));
         stringRedisTemplate.opsForValue().set(
-                "email_confirm:" + confirmToken,
-                user.getId().toString(),
-                Duration.ofHours(24));
+                "email_confirm:" + user.getEmail(),
+                confirmCode,
+                Duration.ofMinutes(15));
         userEventProducer.publishUserRegistered(
                 user.getId(), user.getEmail(), user.getFullName(), user.getRole(),
-                user.getMerchant() != null ? user.getMerchant().getId() : null, confirmToken);
+                user.getMerchant() != null ? user.getMerchant().getId() : null, confirmCode);
         log.info("Confirmation email resent: userId={}", user.getId());
     }
 
     // ─── Task 20: confirmEmail ────────────────────────────────────────────────
 
     /**
-     * Confirms a user's email address using the token from the confirmation email.
+     * Confirms a user's email address using the 6-digit code sent to their email.
      */
     @Transactional
-    public void confirmEmail(String token) {
-        String key = "email_confirm:" + token;
-        String userIdStr = stringRedisTemplate.opsForValue().get(key);
-        if (userIdStr == null) {
+    public void confirmEmail(String email, String code) {
+        String key = "email_confirm:" + email;
+        String storedCode = stringRedisTemplate.opsForValue().get(key);
+        if (storedCode == null || !storedCode.equals(code)) {
             throw new EmailConfirmTokenInvalidException();
         }
-        UUID userId = UUID.fromString(userIdStr);
-        User user = userRepository.findById(userId)
+        User user = userRepository.findByEmail(email)
                 .orElseThrow(EmailConfirmTokenInvalidException::new);
         user.setStatus(UserStatus.ACTIVE);
         userRepository.save(user);
         stringRedisTemplate.delete(key);
-        log.info("Email confirmed: userId={}", userId);
+        log.info("Email confirmed: userId={}", user.getId());
     }
 }

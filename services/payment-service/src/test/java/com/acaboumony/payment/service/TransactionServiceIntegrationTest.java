@@ -80,7 +80,7 @@ class TransactionServiceIntegrationTest extends BaseIntegrationTest {
     void processTransaction_approved_successfully() {
         var request = new TransactionRequest(
             8990L, "BRL", customerId, orderId,
-            "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6", "visa", 1, UUID.randomUUID()
+            "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6", "visa", 1, UUID.randomUUID(), null
         );
 
         TransactionResult result = transactionService.processTransaction(
@@ -97,7 +97,7 @@ class TransactionServiceIntegrationTest extends BaseIntegrationTest {
         var idempotencyKey = UUID.randomUUID();
         var request = new TransactionRequest(
             5000L, "BRL", customerId, orderId,
-            "token1234567890123456789012345678", "master", 2, idempotencyKey
+            "token1234567890123456789012345678", "master", 2, idempotencyKey, null
         );
 
         transactionService.processTransaction(request, "buyer@test.com", merchantId, "10.0.0.1");
@@ -114,7 +114,7 @@ class TransactionServiceIntegrationTest extends BaseIntegrationTest {
     void processTransaction_writesAuditLog() {
         var request = new TransactionRequest(
             3000L, "BRL", customerId, orderId,
-            "tokenabcdefabcdefabcdefabcdef12", "elo", 1, UUID.randomUUID()
+            "tokenabcdefabcdefabcdefabcdef12", "elo", 1, UUID.randomUUID(), null
         );
 
         transactionService.processTransaction(request, "audit@test.com", merchantId, "10.0.0.2");
@@ -131,7 +131,7 @@ class TransactionServiceIntegrationTest extends BaseIntegrationTest {
 
         var request = new TransactionRequest(
             1000L, "BRL", customerId, orderId,
-            "tokenxxxxxxxxxxxxxxxxxxxxxxxxxxxx", "visa", 1, UUID.randomUUID()
+            "tokenxxxxxxxxxxxxxxxxxxxxxxxxxxxx", "visa", 1, UUID.randomUUID(), null
         );
 
         TransactionResult result = transactionService.processTransaction(
@@ -147,7 +147,7 @@ class TransactionServiceIntegrationTest extends BaseIntegrationTest {
         var idempotencyKey = UUID.randomUUID();
         var request = new TransactionRequest(
             2000L, "BRL", customerId, orderId,
-            "tokendupdupdupdupdupdupdupdup1234", "visa", 1, idempotencyKey
+            "tokendupdupdupdupdupdupdupdup1234", "visa", 1, idempotencyKey, null
         );
 
         transactionService.processTransaction(request, "dup@test.com", merchantId, "10.0.0.4");
@@ -168,7 +168,7 @@ class TransactionServiceIntegrationTest extends BaseIntegrationTest {
 
         var request = new TransactionRequest(
             50000L, "BRL", customerId, orderId,
-            "tokenfraudfraudfraudfraudfraud01", "visa", 1, UUID.randomUUID()
+            "tokenfraudfraudfraudfraudfraud01", "visa", 1, UUID.randomUUID(), null
         );
 
         TransactionResult result = transactionService.processTransaction(
@@ -185,7 +185,7 @@ class TransactionServiceIntegrationTest extends BaseIntegrationTest {
 
         var request = new TransactionRequest(
             1000L, "BRL", customerId, orderId,
-            "tokentimeouttimeouttimeouttimeout00", "visa", 1, UUID.randomUUID()
+            "tokentimeouttimeouttimeouttimeout00", "visa", 1, UUID.randomUUID(), null
         );
 
         TransactionResult result = transactionService.processTransaction(
@@ -202,7 +202,7 @@ class TransactionServiceIntegrationTest extends BaseIntegrationTest {
 
         var request = new TransactionRequest(
             1000L, "BRL", customerId, orderId,
-            "tokendeclineddeclineddeclineddeclin", "visa", 1, UUID.randomUUID()
+            "tokendeclineddeclineddeclineddeclin", "visa", 1, UUID.randomUUID(), null
         );
 
         TransactionResult result = transactionService.processTransaction(
@@ -216,7 +216,7 @@ class TransactionServiceIntegrationTest extends BaseIntegrationTest {
     void processTransaction_invalidCurrency_returnsFailure() {
         var request = new TransactionRequest(
             1000L, "USD", customerId, orderId,
-            "tokenusdusdusdusdusdusdusdusdusd", "visa", 1, UUID.randomUUID()
+            "tokenusdusdusdusdusdusdusdusdusd", "visa", 1, UUID.randomUUID(), null
         );
 
         TransactionResult result = transactionService.processTransaction(
@@ -243,7 +243,7 @@ class TransactionServiceIntegrationTest extends BaseIntegrationTest {
 
         var request = new TransactionRequest(
             4500L, "BRL", customerId, orderId,
-            "tokenlisttokenlisttokenlisttoken00", "visa", 1, UUID.randomUUID()
+            "tokenlisttokenlisttokenlisttoken00", "visa", 1, UUID.randomUUID(), null
         );
         transactionService.processTransaction(request, "list@test.com", merchantId, "10.0.0.8");
 
@@ -281,11 +281,11 @@ class TransactionServiceIntegrationTest extends BaseIntegrationTest {
 
         var req1 = new TransactionRequest(
             1000L, "BRL", customerId, orderId,
-            "tokencode1tokencode1tokencode11234", "visa", 1, UUID.randomUUID()
+            "tokencode1tokencode1tokencode11234", "visa", 1, UUID.randomUUID(), null
         );
         var req2 = new TransactionRequest(
             2000L, "BRL", customerId, orderId2,
-            "tokencode2tokencode2tokencode25678", "visa", 1, UUID.randomUUID()
+            "tokencode2tokencode2tokencode25678", "visa", 1, UUID.randomUUID(), null
         );
         transactionService.processTransaction(req1, "filt@test.com", merchantId, "10.0.0.9");
         transactionService.processTransaction(req2, "filt@test.com", merchantId, "10.0.0.9");

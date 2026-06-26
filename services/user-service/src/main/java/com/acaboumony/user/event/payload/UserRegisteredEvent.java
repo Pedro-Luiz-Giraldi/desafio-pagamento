@@ -17,7 +17,7 @@ public record UserRegisteredEvent(
         String fullName,
         UserRole role,
         UUID merchantId,
-        String confirmationToken,
+        String confirmationCode,
         Instant occurredAt
 ) implements UserEvent {
 

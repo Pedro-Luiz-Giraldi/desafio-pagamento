@@ -330,6 +330,7 @@ services:
       MAIL_USERNAME: ${MAIL_USERNAME}
       MAIL_PASSWORD: ${MAIL_PASSWORD}
       MAIL_FROM: ${MAIL_FROM:-noreply@acaboumony.com}
+      APP_BASE_URL: ${APP_BASE_URL:-http://localhost:5173}
       NEW_RELIC_LICENSE_KEY: ${NEW_RELIC_LICENSE_KEY}
       NEW_RELIC_ACCOUNT_ID: ${NEW_RELIC_ACCOUNT_ID}
       NEW_RELIC_APP_NAME: aom-notification-service

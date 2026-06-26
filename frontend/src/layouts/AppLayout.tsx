@@ -6,6 +6,7 @@ import {
   CreditCard,
   User,
   LogOut,
+  Package,
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/button'
@@ -27,6 +28,7 @@ const NAV_ITEMS: Record<UserRole, NavItem[]> = {
   ],
   MERCHANT_OWNER: [
     { label: 'Dashboard', to: ROUTES.DASHBOARD, icon: LayoutDashboard },
+    { label: 'Produtos', to: ROUTES.PRODUCTS, icon: Package },
     { label: 'Pedidos', to: ROUTES.ORDERS, icon: ShoppingCart },
     { label: 'Transações', to: ROUTES.TRANSACTIONS, icon: CreditCard },
     { label: 'Perfil', to: ROUTES.PROFILE, icon: User },
@@ -47,15 +49,18 @@ const ROLE_LABELS: Record<UserRole, string> = {
 export function AppLayout() {
   const { user, role, logout } = useAuth()
   const navItems = role ? NAV_ITEMS[role] : []
-  const initials = user?.name ? user.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() : '?'
+  const initials = user?.name
+    ? user.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
+    : '?'
 
   return (
-    <div className="flex h-screen overflow-hidden bg-muted/20">
+    <div className="flex h-screen overflow-hidden bg-[#f4f6f9]">
       {/* Sidebar */}
-      <aside className="w-60 flex-none bg-white border-r flex flex-col">
+      <aside className="w-60 flex-none bg-[#13141f] flex flex-col">
         {/* Logo */}
-        <div className="px-6 py-5 border-b">
-          <span className="text-lg font-bold text-primary tracking-tight">Acabou o Mony</span>
+        <div className="px-5 py-5 border-b border-white/[0.06]">
+          <span className="text-base font-bold text-emerald-400 tracking-tight">Acabou o Mony</span>
+          <p className="text-[10px] text-white/30 mt-0.5 tracking-wide uppercase">Gateway de Pagamentos</p>
         </div>
 
         {/* Nav */}
@@ -66,10 +71,10 @@ export function AppLayout() {
               to={item.to}
               className={({ isActive }) =>
                 cn(
-                  'flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors',
+                  'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
                   isActive
-                    ? 'bg-primary text-primary-foreground'
-                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                    ? 'bg-emerald-500/15 text-emerald-400'
+                    : 'text-white/50 hover:bg-white/[0.06] hover:text-white/80'
                 )
               }
             >
@@ -80,20 +85,20 @@ export function AppLayout() {
         </nav>
 
         {/* User info + logout */}
-        <div className="p-4 border-t">
+        <div className="p-4 border-t border-white/[0.06]">
           <div className="flex items-center gap-3 mb-3">
-            <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-semibold text-primary flex-none">
+            <div className="h-8 w-8 rounded-full bg-emerald-500/20 flex items-center justify-center text-xs font-bold text-emerald-400 flex-none">
               {initials}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium truncate">{user?.name ?? '—'}</p>
-              <p className="text-xs text-muted-foreground">{role ? ROLE_LABELS[role] : ''}</p>
+              <p className="text-sm font-medium text-white/80 truncate">{user?.name ?? '—'}</p>
+              <p className="text-xs text-white/35">{role ? ROLE_LABELS[role] : ''}</p>
             </div>
           </div>
           <Button
             variant="ghost"
             size="sm"
-            className="w-full justify-start gap-2 text-muted-foreground hover:text-foreground"
+            className="w-full justify-start gap-2 text-white/35 hover:text-white/60 hover:bg-white/[0.06] px-3"
             onClick={() => void logout()}
           >
             <LogOut className="h-4 w-4" />

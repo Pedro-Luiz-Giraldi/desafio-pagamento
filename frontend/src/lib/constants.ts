@@ -15,6 +15,7 @@ export const ROUTES = {
   DASHBOARD: '/dashboard',
   PROFILE: '/profile',
   PROFILE_2FA: '/profile/2fa',
+  PRODUCTS: '/products',
   ORDERS: '/orders',
   NEW_ORDER: '/orders/new',
   ORDER_DETAIL: '/orders/:id',
@@ -22,6 +23,7 @@ export const ROUTES = {
   TRANSACTIONS: '/transactions',
   TRANSACTION_DETAIL: '/transactions/:id',
   REFUND: '/transactions/:id/refund',
+  CHECKOUT: '/checkout/:merchantId/:productId',
 } as const
 
 export const ERROR_MESSAGES: Record<string, string> = {
