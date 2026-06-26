@@ -1,3 +1,4 @@
+import { v4 as uuidv4 } from 'uuid'
 import client from './client'
 import type { Order, OrderDetail, CreateOrderRequest } from '@/types/order'
 import type { PaginatedResponse, ApiResponse } from '@/types/api'
@@ -14,7 +15,12 @@ export const ordersApi = {
   },
 
   async create(input: CreateOrderRequest): Promise<ApiResponse<OrderDetail>> {
-    const response = await client.post<ApiResponse<OrderDetail>>('/api/v1/orders', input)
+    const idempotencyKey = uuidv4()
+    const response = await client.post<ApiResponse<OrderDetail>>('/api/v1/orders', input, {
+      headers: {
+        'Idempotency-Key': idempotencyKey,
+      },
+    })
     return response.data
   },
 

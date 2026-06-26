@@ -1,14 +1,16 @@
 import { FormEvent, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { authApi } from '@/api/auth.api'
+import { usersApi } from '@/api/users.api'
 import { Button, Card, CardContent, CardHeader, CardTitle, Input, Spinner } from '@/components/ui'
 import { PublicLayout } from '@/layouts/public-layout'
 import { useAuthStore } from '@/stores/auth.store'
+import { toast } from '@/lib/toast-store'
 import { FormError } from './form-error'
 
 export function LoginPage() {
   const navigate = useNavigate()
-  const { setLoading, setToken, setTwoFactorToken } = useAuthStore()
+  const { setLoading, setToken, setTwoFactorToken, setUser } = useAuthStore()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({})
@@ -37,8 +39,23 @@ export function LoginPage() {
         navigate('/2fa-verify')
         return
       }
-      setToken(response.accessToken ?? null)
+      const token = response.accessToken ?? null
+      console.log('[LoginPage] Setting token:', token ? 'Token received' : 'No token')
+      setToken(token)
       setTwoFactorToken(null)
+      
+      // Fetch user profile after successful login
+      try {
+        console.log('[LoginPage] Fetching user profile...')
+        const userProfile = await usersApi.getProfile()
+        console.log('[LoginPage] Profile response:', userProfile)
+        setUser(userProfile)
+        console.log('[LoginPage] User set in store:', userProfile)
+      } catch (profileError) {
+        console.error('[LoginPage] Failed to fetch user profile:', profileError)
+        toast.error('Erro ao carregar perfil do usuário')
+      }
+      
       navigate('/')
     } catch (error) {
       setFormError(error instanceof Error ? error.message : 'Nao foi possivel autenticar')

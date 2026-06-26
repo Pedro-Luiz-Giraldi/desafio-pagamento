@@ -18,10 +18,10 @@ describe('usersApi', () => {
   })
 
   it('gets profile', async () => {
-    mockedClient.get.mockResolvedValueOnce({ data: { data: { userId: 'u-1', fullName: 'John' } } })
+    mockedClient.get.mockResolvedValueOnce({ data: { userId: 'u-1', fullName: 'John' } })
     const result = await usersApi.getProfile()
     expect(mockedClient.get).toHaveBeenCalledWith('/api/v1/users/me')
-    expect(result.data.fullName).toBe('John')
+    expect(result.fullName).toBe('John')
   })
 
   it('updates profile name', async () => {

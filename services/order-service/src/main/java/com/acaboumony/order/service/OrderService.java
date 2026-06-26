@@ -9,13 +9,14 @@ import com.acaboumony.order.dto.response.InternalOrderResponse;
 import com.acaboumony.order.dto.response.OrderDetailResponse;
 import com.acaboumony.order.dto.response.OrderResponse;
 import com.acaboumony.order.dto.response.PagedResponse;
+import com.acaboumony.order.event.OrderCreatedApplicationEvent;
 import com.acaboumony.order.event.OrderCreatedEvent;
-import com.acaboumony.order.event.OrderEventProducer;
 import com.acaboumony.order.exception.InsufficientPermissionsException;
 import com.acaboumony.order.exception.OrderCannotBeCancelledException;
 import com.acaboumony.order.exception.OrderNotFoundException;
 import com.acaboumony.order.mapper.OrderMapper;
 import com.acaboumony.order.repository.OrderRepository;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -37,18 +38,18 @@ public class OrderService {
     private final OrderRepository orderRepository;
     private final IdempotencyService idempotencyService;
     private final OrderMapper orderMapper;
-    private final OrderEventProducer orderEventProducer;
+    private final ApplicationEventPublisher eventPublisher;
     private final OrderCacheService orderCacheService;
 
     public OrderService(OrderRepository orderRepository,
                         IdempotencyService idempotencyService,
                         OrderMapper orderMapper,
-                        OrderEventProducer orderEventProducer,
+                        ApplicationEventPublisher eventPublisher,
                         OrderCacheService orderCacheService) {
         this.orderRepository = orderRepository;
         this.idempotencyService = idempotencyService;
         this.orderMapper = orderMapper;
-        this.orderEventProducer = orderEventProducer;
+        this.eventPublisher = eventPublisher;
         this.orderCacheService = orderCacheService;
     }
 
@@ -103,7 +104,9 @@ public class OrderService {
                         .toList(),
                 now
         );
-        orderEventProducer.publishOrderCreated(event);
+        
+        // Publish application event - Kafka publishing will happen AFTER transaction commits
+        eventPublisher.publishEvent(new OrderCreatedApplicationEvent(this, event));
 
         return new CreateOrderResult.Success(orderMapper.toResponse(order), true);
     }

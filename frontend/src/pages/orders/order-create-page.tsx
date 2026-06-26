@@ -33,7 +33,20 @@ export function OrderCreatePage() {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (!user) return
+    
+    console.log('[OrderCreatePage] User from store:', user)
+    
+    if (!user) {
+      console.error('[OrderCreatePage] User is null')
+      toast.error('Usuário não carregado. Faça login novamente.')
+      return
+    }
+
+    if (!user.merchantId) {
+      console.error('[OrderCreatePage] merchantId is missing:', user)
+      toast.error('Merchant ID não encontrado. Entre em contato com o suporte.')
+      return
+    }
 
     const validItems = items.map((item) => ({
       ...item,
@@ -48,7 +61,7 @@ export function OrderCreatePage() {
     }
 
     try {
-      const result = await createOrder.mutateAsync({ merchantId: user.userId, items: validItems })
+      const result = await createOrder.mutateAsync({ merchantId: user.merchantId, items: validItems })
       toast.success('Pedido criado com sucesso')
       navigate(`/orders/${result.data.orderId}`)
     } catch {

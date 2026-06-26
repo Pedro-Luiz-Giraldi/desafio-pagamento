@@ -32,6 +32,7 @@ export interface UserProfile {
   email: string
   fullName: string
   role: string
+  merchantId?: string
   twoFactorEnabled: boolean
   emailConfirmed: boolean
   createdAt: string

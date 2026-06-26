@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { authApi } from '@/api/auth.api'
+import { usersApi } from '@/api/users.api'
 import { Button, Card, CardContent, CardHeader, CardTitle, Input, Spinner } from '@/components/ui'
 import { PublicLayout } from '@/layouts/public-layout'
 import { useAuthStore } from '@/stores/auth.store'
@@ -8,7 +9,7 @@ import { FormError } from './form-error'
 
 export function TwoFactorPage() {
   const navigate = useNavigate()
-  const { setLoading, setToken, setTwoFactorToken, twoFactorToken } = useAuthStore()
+  const { setLoading, setToken, setTwoFactorToken, setUser, twoFactorToken } = useAuthStore()
   const completedRef = useRef(false)
   const [code, setCode] = useState('')
   const [codeError, setCodeError] = useState<string | undefined>()
@@ -43,6 +44,15 @@ export function TwoFactorPage() {
       completedRef.current = true
       setToken(response.accessToken ?? null)
       setTwoFactorToken(null)
+      
+      // Fetch user profile after successful 2FA verification
+      try {
+        const userProfile = await usersApi.getProfile()
+        setUser(userProfile)
+      } catch (profileError) {
+        console.error('Failed to fetch user profile:', profileError)
+      }
+      
       navigate('/')
     } catch (error) {
       setFormError(error instanceof Error ? error.message : 'Nao foi possivel verificar o codigo')

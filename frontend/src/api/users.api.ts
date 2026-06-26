@@ -3,8 +3,8 @@ import type { ApiResponse } from '@/types/api'
 import type { UserProfile, TwoFactorSetupResponse } from '@/types/auth'
 
 export const usersApi = {
-  async getProfile(): Promise<ApiResponse<UserProfile>> {
-    const response = await client.get<ApiResponse<UserProfile>>('/api/v1/users/me')
+  async getProfile(): Promise<UserProfile> {
+    const response = await client.get<UserProfile>('/api/v1/users/me')
     return response.data
   },
 
