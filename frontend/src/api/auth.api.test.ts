@@ -22,13 +22,17 @@ describe('authApi', () => {
       fullName: 'Merchant User',
       email: 'merchant@example.com',
       password: 'Senha@1234',
+      companyName: 'Test Company',
+      cnpj: '11222333000181',
     })
 
     expect(mockedClient.post).toHaveBeenCalledWith('/api/v1/auth/register', {
       fullName: 'Merchant User',
       email: 'merchant@example.com',
       password: 'Senha@1234',
-      role: 'MERCHANT',
+      companyName: 'Test Company',
+      cnpj: '11222333000181',
+      role: 'MERCHANT_OWNER',
     })
   })
 

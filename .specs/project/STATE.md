@@ -1,7 +1,7 @@
 # STATE — Frontend Merchant Dashboard
 
-**Última atualização:** 2026-06-22
-**Sessão ativa:** Onda 4 completa ✅ — Iniciando Onda 5 (Finalização)
+**Última atualização:** 2025-01-24
+**Sessão ativa:** Bug Fix — Merchant Registration Flow
 
 ---
 
@@ -310,4 +310,55 @@
 **Cobertura de testes:** Unit (Vitest) + E2E (Playwright)
 **Responsividade:** 360px+ a desktop
 **Stack:** React 19, TypeScript, Tailwind CSS 4, TanStack Query, Zustand, Axios, React Router v7, Vitest, Playwright
+
+---
+
+## 🐛 Bug Fix — Merchant Registration (2025-01-24)
+
+### Issue Discovered
+Merchant account creation is broken. Users cannot register successfully:
+- Frontend sends `role: "MERCHANT"` (invalid enum value)
+- Frontend doesn't collect required fields: `companyName` and `cnpj`
+- Backend validation rejects the request
+- Frontend shows success mes cannot log in with "created" account
+
+### Root Cause Analysis
+**Frontend/Backend Contract Mismatch:**
+- Backend expects: `role: "MERCHANT_OWNER"` + `compsage despite API failure
+- UseranyName` + `cnpj`
+- Frontend sends: `role: "MERCHANT"` (no companyName, no cnpj)
+- Validation in `RegisterRequestValidator.java` requires both fields for `MERCHANT_OWNER` role
+- CNPJ must be valid Brazilian tax ID with checksum validation
+
+### Solution Plan
+**Feature:** `merchant-registration-fix`  
+**Spec:** `.specs/features/misterchant-registration-fix/spec.md`  
+**Tasks:** `.specs/features/merchant-registrationges Required:**
+1. Add CNPJ validation utierRequest` type to include `companyName` and `cnpj`
+3. Update `authApi.register()` to send correct role and fields
+4. Add "Nome da Empren-fix/tasks.md`
+
+**Chalities (format, checksum, mask)
+2. Update `Regsa" field to registration form
+5. Add "CNPJ" field with masking and validation
+6. Improve error handling for backend validation errors
+7. Integration testing with backend
+
+**Estimated Time:** ~2.5 hours
+
+**Status:** Planning complete ✅ — Ready for implementation
+
+### Decisions Made
+- Use proper implementation (Option 2) with full CNPJ validation
+- Add CNPJ checksum validation using Brazilian algorithm
+- Apply CNPJ mask `XX.XXX.XXX/XXXX-XX` as user types
+- Send cleaned CNPJ (digits only) to backend
+- Map backend validation errors to field-specific errors
+- Maintain single-page registration form (no wizard)
+
+### Next Steps
+1. Execute tasks T-01 through T-07 sequentially
+2. Test with running backend (user-service on port 8080)
+3. Verify complete flow: register → confirm email → login
+4. Update STATE.md with execution results
 

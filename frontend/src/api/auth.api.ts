@@ -5,13 +5,15 @@ interface RegisterMerchantInput {
   fullName: string
   email: string
   password: string
+  companyName: string
+  cnpj: string
 }
 
 export const authApi = {
   async register(input: RegisterMerchantInput): Promise<RegisterResponse> {
     const response = await client.post<RegisterResponse>('/api/v1/auth/register', {
       ...input,
-      role: 'MERCHANT',
+      role: 'MERCHANT_OWNER',
     })
     return response.data
   },

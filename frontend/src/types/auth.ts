@@ -23,6 +23,7 @@ export interface RegisterResponse {
   userId: string
   email: string
   role: string
+  merchantId?: string
   emailConfirmed: boolean
 }
 
