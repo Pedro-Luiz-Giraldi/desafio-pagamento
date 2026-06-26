@@ -5,8 +5,14 @@ export interface ApiResponse<T> {
 }
 
 export interface PaginatedResponse<T> {
-  data: T[]
-  meta: PageMeta
+  data: {
+    content: T[]
+    page: number
+    size: number
+    totalElements: number
+    totalPages: number
+  }
+  meta: Meta
   errors: ErrorDetail[]
 }
 

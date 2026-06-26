@@ -141,8 +141,8 @@ public class AuthService {
             return new AuthResult.Failure("ACCOUNT_LOCKED", "Account temporarily locked", false, unlockAt);
         }
 
-        // 2. Fetch user (may be null — we still run BCrypt for constant-time)
-        User user = userRepository.findByEmail(req.email()).orElse(null);
+        // 2. Fetch user with merchant (may be null — we still run BCrypt for constant-time)
+        User user = userRepository.findByEmailWithMerchant(req.email()).orElse(null);
 
         // 3. Constant-time BCrypt comparison — always executes regardless of user existence
         String hash = user != null ? user.getPasswordHash() : DUMMY_BCRYPT_HASH;

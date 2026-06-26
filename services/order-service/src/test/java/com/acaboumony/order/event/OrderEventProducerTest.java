@@ -50,8 +50,9 @@ class OrderEventProducerTest {
                 List.of(new OrderCreatedEvent.OrderItemEvent("p1", "Product 1", 2, 1000L, 2000L)),
                 Instant.now()
         );
+        var applicationEvent = new OrderCreatedApplicationEvent(this, event);
 
-        producer.publishOrderCreated(event);
+        producer.handleOrderCreated(applicationEvent);
 
         verify(kafkaTemplate).send(eq("order.created"), eq(orderId.toString()), createdCaptor.capture());
         assertThat(createdCaptor.getValue().orderId()).isEqualTo(orderId);

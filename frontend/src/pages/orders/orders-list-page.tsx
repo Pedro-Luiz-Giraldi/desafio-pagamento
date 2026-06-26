@@ -58,7 +58,7 @@ export function OrdersListPage() {
             </div>
           ) : isError ? (
             <p className="text-sm text-red-600">Erro ao carregar pedidos</p>
-          ) : !data?.data.length ? (
+          ) : !data?.data.content.length ? (
             <p className="text-sm text-gray-500">Nenhum pedido encontrado</p>
           ) : (
             <>
@@ -75,7 +75,7 @@ export function OrdersListPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {data.data.map((order) => (
+                    {data.data.content.map((order) => (
                       <tr
                         key={order.orderId}
                         onClick={() => navigate(`/orders/${order.orderId}`)}
@@ -94,7 +94,7 @@ export function OrdersListPage() {
 
               {/* Mobile Cards */}
               <div className="md:hidden space-y-3">
-                {data.data.map((order) => (
+                {data.data.content.map((order) => (
                   <div
                     key={order.orderId}
                     onClick={() => navigate(`/orders/${order.orderId}`)}
@@ -116,7 +116,7 @@ export function OrdersListPage() {
               </div>
 
               <div className="mt-6">
-                <Pagination page={page} totalPages={data.meta.totalPages} onPageChange={setPage} />
+                <Pagination page={page} totalPages={data.data.totalPages} onPageChange={setPage} />
               </div>
             </>
           )}

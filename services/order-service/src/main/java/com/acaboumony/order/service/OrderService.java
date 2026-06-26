@@ -33,7 +33,7 @@ public class OrderService {
 
     static final int MAX_PAGE_SIZE = 100;
     static final long MAX_TOTAL_IN_CENTS = 999_999;
-    static final long EXPIRATION_MINUTES = 15;
+    static final long EXPIRATION_MINUTES = 1440; // 24 hours for testing (was 15 minutes)
 
     private final OrderRepository orderRepository;
     private final IdempotencyService idempotencyService;
@@ -130,7 +130,7 @@ public class OrderService {
             orderPage = statusFilter != null
                     ? orderRepository.findByStatus(OrderStatus.valueOf(statusFilter), pageable)
                     : orderRepository.findAll(pageable);
-        } else if ("MERCHANT".equals(role)) {
+        } else if ("MERCHANT".equals(role) || "MERCHANT_OWNER".equals(role)) {
             if (merchantId == null) {
                 throw new InsufficientPermissionsException("MERCHANT role requires X-Merchant-Id header");
             }
@@ -218,7 +218,7 @@ public class OrderService {
         if ("ADMIN".equals(role)) {
             return;
         }
-        if ("MERCHANT".equals(role)) {
+        if ("MERCHANT".equals(role) || "MERCHANT_OWNER".equals(role)) {
             if (merchantId == null) {
                 throw new InsufficientPermissionsException("MERCHANT role requires X-Merchant-Id header");
             }

@@ -7,8 +7,8 @@ import com.acaboumony.order.dto.request.CreateOrderRequest;
 import com.acaboumony.order.dto.request.ItemRequest;
 import com.acaboumony.order.dto.response.OrderDetailResponse;
 import com.acaboumony.order.dto.response.PagedResponse;
-import com.acaboumony.order.event.OrderCreatedEvent;
-import com.acaboumony.order.event.OrderEventProducer;
+import com.acaboumony.order.event.OrderCreatedApplicationEvent;
+import org.springframework.context.ApplicationEventPublisher;
 import com.acaboumony.order.exception.InsufficientPermissionsException;
 import com.acaboumony.order.exception.OrderCannotBeCancelledException;
 import com.acaboumony.order.exception.OrderNotFoundException;
@@ -52,11 +52,13 @@ class OrderServiceTest {
     @Mock
     private IdempotencyService idempotencyService;
     @Mock
-    private OrderEventProducer orderEventProducer;
+    private ApplicationEventPublisher eventPublisher;
     @Mock
     private OrderCacheService orderCacheService;
     @Captor
     private ArgumentCaptor<Order> orderCaptor;
+    @Captor
+    private ArgumentCaptor<OrderCreatedApplicationEvent> eventCaptor;
 
     private OrderMapper orderMapper;
     private OrderService orderService;
@@ -70,7 +72,7 @@ class OrderServiceTest {
     @BeforeEach
     void setUp() {
         orderMapper = new OrderMapper();
-        orderService = new OrderService(orderRepository, idempotencyService, orderMapper, orderEventProducer, orderCacheService);
+        orderService = new OrderService(orderRepository, idempotencyService, orderMapper, eventPublisher, orderCacheService);
         customerId = UUID.randomUUID();
         customerEmail = "customer@test.com";
         merchantId = UUID.randomUUID();
@@ -106,7 +108,7 @@ class OrderServiceTest {
             assertThat(success.order().status()).isEqualTo("PENDING");
             assertThat(success.order().items()).hasSize(2);
             verify(idempotencyService).markProcessed(idempotencyKey, success.order().orderId());
-            verify(orderEventProducer).publishOrderCreated(any());
+            verify(eventPublisher).publishEvent(any(OrderCreatedApplicationEvent.class));
         }
 
         @Test
