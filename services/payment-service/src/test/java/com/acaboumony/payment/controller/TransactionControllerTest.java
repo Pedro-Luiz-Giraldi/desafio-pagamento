@@ -121,7 +121,7 @@ class TransactionControllerTest {
         var merchantId = UUID.randomUUID();
         var customerId = UUID.randomUUID();
         var tx = new TransactionSummary("txn_001", 123L,
-            "APPROVED", 5000L, "BRL", "visa", "1234",
+            "APPROVED", 5000L, 0L, "BRL", "visa", "1234",
             null, 500L);
         when(transactionService.findByCustomer(eq(customerId), eq(merchantId), any()))
             .thenReturn(new PageImpl<>(List.of(tx)));
@@ -222,10 +222,10 @@ class TransactionControllerTest {
         var merchantId = UUID.randomUUID();
         var customerId = UUID.randomUUID();
         var tx1 = new TransactionSummary("txn_001", 123L,
-            "APPROVED", 5000L, "BRL", "visa", "1234",
+            "APPROVED", 5000L, 0L, "BRL", "visa", "1234",
             null, 500L);
         var tx2 = new TransactionSummary("txn_002", 456L,
-            "DECLINED", 3000L, "BRL", "master", "5678",
+            "DECLINED", 3000L, 0L, "BRL", "master", "5678",
             null, 600L);
         when(transactionService.findByCustomer(eq(customerId), eq(merchantId), any()))
             .thenReturn(new PageImpl<>(List.of(tx1, tx2)));

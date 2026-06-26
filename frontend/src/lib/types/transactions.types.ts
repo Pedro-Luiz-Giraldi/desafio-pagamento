@@ -20,6 +20,7 @@ export interface Transaction {
   customerId?: string
   customerName?: string
   amountInCents: number
+  refundedAmountInCents?: number
   currency: string
   status: TransactionStatus
   cardBrand?: string

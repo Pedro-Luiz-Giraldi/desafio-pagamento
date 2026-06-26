@@ -202,12 +202,18 @@ public class OrderService {
     public InternalOrderResponse getOrderInternal(UUID orderId) {
         var order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new OrderNotFoundException(orderId));
+        List<InternalOrderResponse.ItemDto> items = order.getItems() == null ? List.of() :
+                order.getItems().stream()
+                        .map(i -> new InternalOrderResponse.ItemDto(
+                                i.getDescription(), i.getQuantity(), i.getUnitPriceInCents()))
+                        .toList();
         return new InternalOrderResponse(
                 order.getId(),
                 order.getStatus().name(),
                 order.getTotalInCents(),
                 order.getMerchantId(),
-                order.getCustomerId()
+                order.getCustomerId(),
+                items
         );
     }
 

@@ -18,8 +18,7 @@ public record TransactionCompletedEvent(
     String cardLastFour,
     Integer installments,
     List<ItemEvent> items,
-    Instant processedAt,
-    String status
+    Instant processedAt
 ) {
     public record ItemEvent(
         String description,

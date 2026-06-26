@@ -1,9 +1,9 @@
-import { useState } from 'react'
-import { useNavigate, useParams, useSearchParams, Link } from 'react-router-dom'
-import { useForm } from 'react-hook-form'
+import { useState, useEffect } from 'react'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Shield, CheckCircle2, XCircle, CreditCard, Package, LogIn } from 'lucide-react'
+import { Shield, CheckCircle2, XCircle, CreditCard, Package } from 'lucide-react'
 import { ordersService } from '@features/orders/services/ordersService'
 import { transactionsService } from '@features/transactions/services/transactionsService'
 import { productService } from '@features/products/services/productService'
@@ -29,9 +29,13 @@ const cardSchema = z.object({
   cardNumber: z.string().min(13, 'Número inválido').max(19).regex(/^\d+$/, 'Apenas números'),
   cardholderName: z.string().min(2, 'Informe o nome como no cartão'),
   expirationMonth: z.string().length(2, 'MM').regex(/^(0[1-9]|1[0-2])$/, 'Mês inválido'),
-  expirationYear: z.string().length(4, 'AAAA').regex(/^\d{4}$/, 'Ano inválido'),
+  expirationYear: z.string().length(2, 'AA').regex(/^\d{2}$/, 'Ano inválido (YY)'),
   securityCode: z.string().min(3, 'CVV inválido').max(4).regex(/^\d+$/, 'Apenas números'),
 })
+
+function formatCardNumber(digits: string): string {
+  return digits.replace(/(.{4})(?=.)/g, '$1 ')
+}
 type CardForm = z.infer<typeof cardSchema>
 
 type StepState = 'idle' | 'processing' | 'done' | 'error'
@@ -84,6 +88,13 @@ export default function CheckoutPage() {
     return productService.getActiveProducts(merchantId).find(p => p.id === productId) ?? null
   })()
 
+  useEffect(() => {
+    if (!authLoading && !user) {
+      const returnUrl = encodeURIComponent(window.location.pathname + window.location.search)
+      navigate(`${ROUTES.LOGIN}?redirect=${returnUrl}`, { replace: true })
+    }
+  }, [authLoading, user, navigate])
+
   const [screen, setScreen] = useState<'form' | 'success' | 'failure'>('form')
   const [paymentError, setPaymentError] = useState<string | null>(null)
   const [retryable, setRetryable] = useState(false)
@@ -92,6 +103,7 @@ export default function CheckoutPage() {
 
   const {
     register,
+    control,
     handleSubmit,
     formState: { errors, isSubmitting },
   } = useForm<CardForm>({ resolver: zodResolver(cardSchema) })
@@ -181,50 +193,7 @@ export default function CheckoutPage() {
     )
   }
 
-  if (!authLoading && !user) {
-    return (
-      <div className="min-h-screen bg-muted/20 flex flex-col">
-        <header className="bg-white border-b px-6 py-4 flex items-center justify-between">
-          <span className="text-base font-bold text-primary">Acabou o Mony</span>
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <Shield className="h-3.5 w-3.5 text-green-600" />
-            Checkout seguro
-          </div>
-        </header>
-        <div className="flex-1 flex items-center justify-center p-6">
-          <div className="w-full max-w-md space-y-4">
-            <div className="bg-white rounded-xl border p-5 space-y-1">
-              <p className="text-xs text-muted-foreground uppercase tracking-wide font-medium">Produto</p>
-              <p className="text-lg font-semibold">{product.name}</p>
-              {product.description && <p className="text-sm text-muted-foreground">{product.description}</p>}
-              <p className="text-2xl font-bold text-primary pt-1">{formatCurrency(product.priceInCents)}</p>
-            </div>
-            <div className="bg-white rounded-xl border p-6 text-center space-y-4">
-              <LogIn className="h-10 w-10 text-primary mx-auto" />
-              <div>
-                <p className="font-semibold">Faça login para continuar</p>
-                <p className="text-sm text-muted-foreground mt-1">
-                  É necessário ter uma conta para finalizar a compra.
-                </p>
-              </div>
-              <div className="flex flex-col gap-2">
-                <Button asChild>
-                  <Link to={`${ROUTES.LOGIN}?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`}>
-                    Entrar
-                  </Link>
-                </Button>
-                <Button variant="outline" asChild>
-                  <Link to={ROUTES.REGISTER}>
-                    Criar conta
-                  </Link>
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    )
-  }
+  if (authLoading || !user) return null
 
   const showPipeline = (screen === 'form' && isSubmitting) || screen === 'success' || screen === 'failure'
 
@@ -299,14 +268,25 @@ export default function CheckoutPage() {
 
                 <div className="space-y-1.5">
                   <Label htmlFor="cardNumber">Número do cartão</Label>
-                  <Input
-                    id="cardNumber"
-                    type="text"
-                    inputMode="numeric"
-                    maxLength={19}
-                    placeholder="0000 0000 0000 0000"
-                    autoComplete="cc-number"
-                    {...register('cardNumber')}
+                  <Controller
+                    name="cardNumber"
+                    control={control}
+                    render={({ field }) => (
+                      <Input
+                        id="cardNumber"
+                        type="text"
+                        inputMode="numeric"
+                        maxLength={19}
+                        placeholder="0000 0000 0000 0000"
+                        autoComplete="cc-number"
+                        value={formatCardNumber(field.value ?? '')}
+                        onChange={(e) => {
+                          const raw = e.target.value.replace(/\D/g, '').slice(0, 16)
+                          field.onChange(raw)
+                        }}
+                        onBlur={field.onBlur}
+                      />
+                    )}
                   />
                   {errors.cardNumber && <p className="text-xs text-destructive">{errors.cardNumber.message}</p>}
                 </div>
@@ -347,8 +327,8 @@ export default function CheckoutPage() {
                       id="expirationYear"
                       type="text"
                       inputMode="numeric"
-                      maxLength={4}
-                      placeholder="AAAA"
+                      maxLength={2}
+                      placeholder="AA"
                       autoComplete="cc-exp-year"
                       {...register('expirationYear')}
                     />

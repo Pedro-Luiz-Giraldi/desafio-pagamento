@@ -1,6 +1,7 @@
 package com.acaboumony.payment.service;
 
 import com.acaboumony.payment.client.MercadoPagoGateway;
+import com.acaboumony.payment.client.UserServiceClient;
 import com.acaboumony.payment.domain.entity.Refund;
 import com.acaboumony.payment.domain.entity.Transaction;
 import com.acaboumony.payment.domain.enums.RefundReason;
@@ -39,6 +40,7 @@ class RefundServiceTest {
     @Mock private MercadoPagoGateway mpGateway;
     @Mock private TransactionEventProducer eventProducer;
     @Mock private AuditLogRepository auditLogRepository;
+    @Mock private UserServiceClient userClient;
 
     private RefundService service;
     private Transaction approvedTransaction;
@@ -47,7 +49,7 @@ class RefundServiceTest {
     @BeforeEach
     void setUp() {
         service = new RefundService(transactionRepository, refundRepository,
-            auditLogRepository, redis, mpGateway, eventProducer);
+            auditLogRepository, redis, mpGateway, eventProducer, userClient);
         approvedTransaction = new Transaction();
         approvedTransaction.setTransactionId("txn_abc123");
         approvedTransaction.setMpPaymentId(123456L);
@@ -117,6 +119,7 @@ class RefundServiceTest {
         when(mpGateway.refundPayment(123456L, null)).thenReturn(
             new MercadoPagoGateway.RefundResult(true, 789L));
         when(refundRepository.save(any())).thenAnswer(i -> i.getArgument(0));
+        when(userClient.fetchUserDetails(any())).thenReturn(Optional.empty());
 
         RefundResponse response = service.refund("txn_abc123", refundRequest, merchantId);
 
@@ -210,6 +213,7 @@ class RefundServiceTest {
         when(mpGateway.refundPayment(123456L, 3000L)).thenReturn(
             new MercadoPagoGateway.RefundResult(true, 101L));
         when(refundRepository.save(any())).thenAnswer(i -> i.getArgument(0));
+        when(userClient.fetchUserDetails(any())).thenReturn(Optional.empty());
 
         RefundResponse response = service.refund("txn_abc123", partialRequest, merchantId);
 
@@ -235,6 +239,7 @@ class RefundServiceTest {
         when(mpGateway.refundPayment(eq(123456L), isNull())).thenReturn(
             new MercadoPagoGateway.RefundResult(true, 202L));
         when(refundRepository.save(any())).thenAnswer(i -> i.getArgument(0));
+        when(userClient.fetchUserDetails(any())).thenReturn(Optional.empty());
 
         RefundResponse response = service.refund("txn_abc123", fullAmountRequest, merchantId);
 
@@ -296,6 +301,7 @@ class RefundServiceTest {
         when(mpGateway.refundPayment(123456L, 5000L)).thenReturn(
             new MercadoPagoGateway.RefundResult(true, 303L));
         when(refundRepository.save(any())).thenAnswer(i -> i.getArgument(0));
+        when(userClient.fetchUserDetails(any())).thenReturn(Optional.empty());
 
         RefundResponse response = service.refund("txn_abc123", fullAmountRequest, merchantId);
 
@@ -342,6 +348,7 @@ class RefundServiceTest {
         when(mpGateway.refundPayment(123456L, 5000L)).thenReturn(
             new MercadoPagoGateway.RefundResult(true, 404L));
         when(refundRepository.save(any())).thenAnswer(i -> i.getArgument(0));
+        when(userClient.fetchUserDetails(any())).thenReturn(Optional.empty());
 
         RefundResponse response = service.refund("txn_abc123", partialRequest, merchantId);
 
@@ -360,6 +367,7 @@ class RefundServiceTest {
         when(transactionRepository.findByTransactionId("txn_abc123")).thenReturn(Optional.of(approvedTransaction));
         when(mpGateway.refundPayment(123456L, null)).thenReturn(
             new MercadoPagoGateway.RefundResult(true, 505L));
+        when(userClient.fetchUserDetails(any())).thenReturn(Optional.empty());
         when(refundRepository.save(any())).thenAnswer(i -> {
             var r = (Refund) i.getArgument(0);
             assertEquals(10, r.getEstimatedArrivalDays());
@@ -381,6 +389,7 @@ class RefundServiceTest {
         when(refundRepository.findByTransactionIdOrderByCreatedAtDesc("txn_abc123")).thenReturn(List.of());
         when(mpGateway.refundPayment(123456L, 3000L)).thenReturn(
             new MercadoPagoGateway.RefundResult(true, 606L));
+        when(userClient.fetchUserDetails(any())).thenReturn(Optional.empty());
         when(refundRepository.save(any())).thenAnswer(i -> {
             var r = (Refund) i.getArgument(0);
             assertEquals(7, r.getEstimatedArrivalDays());

@@ -15,12 +15,14 @@ function needsIdempotencyKey(path: string, method: string): boolean {
 }
 
 function normalizeError(status: number, body: unknown): ApiError {
-  const err = (body as Record<string, unknown> | null)?.errors
+  const b = body as Record<string, unknown> | null
+  // Standard paginated error format: { errors: [{ errorCode, message, retryable }] }
+  const err = b?.errors
   const first = Array.isArray(err) ? (err[0] as Record<string, unknown>) : null
   return {
-    errorCode: (first?.errorCode as string) ?? `HTTP_${status}`,
-    message: (first?.message as string) ?? 'Erro inesperado',
-    retryable: (first?.retryable as boolean) ?? status >= 500,
+    errorCode: (first?.errorCode as string) ?? (b?.errorCode as string) ?? `HTTP_${status}`,
+    message: (first?.message as string) ?? (b?.detail as string) ?? (b?.message as string) ?? 'Erro inesperado',
+    retryable: (first?.retryable as boolean) ?? (b?.retryable as boolean) ?? status >= 500,
   }
 }
 

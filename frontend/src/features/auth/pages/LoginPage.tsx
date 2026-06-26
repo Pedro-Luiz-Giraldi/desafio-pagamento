@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { Eye, EyeOff } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/button'
@@ -16,10 +16,14 @@ const loginSchema = z.object({
 })
 type LoginForm = z.infer<typeof loginSchema>
 
+const GENERIC_AUTH_ERROR = 'E-mail ou senha inválidos.'
+
 const LOGIN_ERRORS: Record<string, string> = {
-  INVALID_CREDENTIALS: 'E-mail ou senha incorretos.',
+  INVALID_CREDENTIALS: GENERIC_AUTH_ERROR,
   EMAIL_NOT_CONFIRMED: 'Confirme seu e-mail antes de acessar.',
+  ACCOUNT_NOT_CONFIRMED: 'Confirme seu e-mail antes de acessar.',
   ACCOUNT_LOCKED: 'Conta bloqueada. Entre em contato com o suporte.',
+  ACCOUNT_DISABLED: 'Conta desativada. Entre em contato com o suporte.',
   RATE_LIMIT: 'Muitas tentativas. Aguarde antes de tentar novamente.',
 }
 
@@ -27,7 +31,11 @@ export default function LoginPage() {
   const { login } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
-  const from = (location.state as { from?: { pathname: string } } | null)?.from?.pathname ?? ROUTES.DASHBOARD
+  const [searchParams] = useSearchParams()
+  const redirectParam = searchParams.get('redirect')
+  const from = redirectParam
+    ? decodeURIComponent(redirectParam)
+    : (location.state as { from?: { pathname: string } } | null)?.from?.pathname ?? ROUTES.DASHBOARD
 
   const [showPassword, setShowPassword] = useState(false)
   const [apiError, setApiError] = useState<string | null>(null)
@@ -58,8 +66,12 @@ export default function LoginPage() {
     }
 
     if ('error' in result) {
-      if (result.errorCode === 'EMAIL_NOT_CONFIRMED') setIsEmailNotConfirmed(true)
-      setApiError(LOGIN_ERRORS[result.errorCode] ?? 'Ocorreu um erro inesperado.')
+      const isEmailNotConfirmed = result.errorCode === 'EMAIL_NOT_CONFIRMED' || result.errorCode === 'ACCOUNT_NOT_CONFIRMED'
+      if (isEmailNotConfirmed) setIsEmailNotConfirmed(true)
+      const mapped = LOGIN_ERRORS[result.errorCode]
+      // Unknown 4xx auth errors are treated as wrong credentials (don't expose internals)
+      const is4xx = result.errorCode.startsWith('HTTP_4') || result.errorCode === 'HTTP_401'
+      setApiError(mapped ?? (is4xx ? GENERIC_AUTH_ERROR : 'Ocorreu um erro inesperado. Tente novamente.'))
     }
   }
 

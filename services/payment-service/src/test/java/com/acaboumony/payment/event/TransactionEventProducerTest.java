@@ -54,7 +54,7 @@ class TransactionEventProducerTest {
             UUID.randomUUID(), "c@t.com", "m@t.com",
             5000L, "BRL", "visa", "1234", 1,
             List.of(new TransactionCompletedEvent.ItemEvent("Item", 1, 1000L)),
-            Instant.now(), "APPROVED"
+            Instant.now()
         );
         producer.publishCompleted(event);
 

@@ -46,7 +46,7 @@ class TransactionEventProducerExtendedTest {
             "txn_001", 123L, UUID.randomUUID(), UUID.randomUUID(),
             UUID.randomUUID(), "c@t.com", "m@t.com",
             5000L, "BRL", "visa", "1234", 1,
-            List.of(), Instant.now(), "APPROVED"
+            List.of(), Instant.now()
         );
 
         producer.publishCompleted(event);
@@ -87,7 +87,7 @@ class TransactionEventProducerExtendedTest {
             UUID.randomUUID(), "a@b.com", "m@b.com",
             3000L, "BRL", "elo", "9876", 2,
             List.of(new TransactionCompletedEvent.ItemEvent("Item", 2, 1500L)),
-            Instant.now(), "APPROVED"
+            Instant.now()
         );
         when(kafkaTemplate.send(eq("transaction.completed"), eq("txn_002"), any()))
             .thenReturn(CompletableFuture.completedFuture(null));

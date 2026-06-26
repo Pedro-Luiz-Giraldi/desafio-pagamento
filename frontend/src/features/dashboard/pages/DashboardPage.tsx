@@ -180,15 +180,19 @@ function MerchantDashboard() {
   const loading = loadingTx
 
   const approved = transactions.filter(t => t.status === 'APPROVED')
+  const partiallyRefunded = transactions.filter(t => t.status === 'PARTIALLY_REFUNDED')
+  const fullyRefunded = transactions.filter(t => t.status === 'FULLY_REFUNDED')
   const declined = transactions.filter(t => t.status === 'DECLINED' || t.status === 'SUSPECTED_FRAUD')
-  const refunded = transactions.filter(t =>
-    t.status === 'FULLY_REFUNDED' || t.status === 'PARTIALLY_REFUNDED'
-  )
+  const refunded = [...partiallyRefunded, ...fullyRefunded]
 
   const totalSales = approved.length + refunded.length
-  const revenueInCents = approved.reduce((s, t) => s + t.amountInCents, 0)
+  // FULLY_REFUNDED: valor líquido = 0 (não entra no cálculo)
+  // PARTIALLY_REFUNDED: valor líquido = original - já reembolsado
+  const revenueInCents =
+    approved.reduce((s, t) => s + t.amountInCents, 0) +
+    partiallyRefunded.reduce((s, t) => s + t.amountInCents - (t.refundedAmountInCents ?? 0), 0)
   const approvalRate = transactions.length > 0
-    ? Math.round((approved.length / transactions.length) * 100)
+    ? Math.round(((approved.length + refunded.length) / transactions.length) * 100)
     : null
   const refundRate = totalSales > 0
     ? Math.round((refunded.length / totalSales) * 100)

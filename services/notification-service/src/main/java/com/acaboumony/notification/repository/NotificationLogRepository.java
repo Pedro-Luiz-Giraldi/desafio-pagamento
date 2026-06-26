@@ -11,4 +11,6 @@ import java.util.UUID;
 public interface NotificationLogRepository extends JpaRepository<NotificationLog, UUID> {
 
     Optional<NotificationLog> findByCorrelationIdAndEventType(String correlationId, String eventType);
+
+    Optional<NotificationLog> findByCorrelationIdAndEventTypeAndStatus(String correlationId, String eventType, String status);
 }

@@ -68,7 +68,9 @@ public class EmailService {
 
     private boolean isDuplicate(String correlationId, String eventType) {
         if (correlationId == null) return false;
-        return notificationLogRepository.findByCorrelationIdAndEventType(correlationId, eventType).isPresent();
+        return notificationLogRepository
+            .findByCorrelationIdAndEventTypeAndStatus(correlationId, eventType, "SENT")
+            .isPresent();
     }
 
     private void sendWithRetry(String to, String subject, String templateName,

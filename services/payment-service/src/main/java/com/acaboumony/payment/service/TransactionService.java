@@ -33,6 +33,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
@@ -200,11 +201,17 @@ public class TransactionService {
             .map(UserServiceClient.UserDetails::email)
             .orElse(null);
 
+        var orderItems = orderClient.fetchOrderDetails(request.orderId())
+            .map(details -> details.items().stream()
+                .map(i -> new TransactionCompletedEvent.ItemEvent(i.description(), i.quantity(), i.unitPriceInCents()))
+                .toList())
+            .orElse(null);
+
         var completedEvent = new TransactionCompletedEvent(
             transactionId, gatewayResult.mpPaymentId(), request.orderId(),
             request.customerId(), merchantId, customerEmail, merchantEmail,
             request.amountInCents(), "BRL", transaction.getCardBrand(), transaction.getCardLastFour(),
-            request.installments(), null, Instant.now(), "APPROVED"
+            request.installments(), orderItems, Instant.now()
         );
         eventProducer.publishCompleted(completedEvent);
 

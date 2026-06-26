@@ -1,6 +1,7 @@
 package com.acaboumony.payment.service;
 
 import com.acaboumony.payment.client.MercadoPagoGateway;
+import com.acaboumony.payment.client.UserServiceClient;
 import com.acaboumony.payment.domain.entity.AuditLog;
 import com.acaboumony.payment.domain.entity.Refund;
 import com.acaboumony.payment.domain.entity.Transaction;
@@ -41,19 +42,22 @@ public class RefundService {
     private final StringRedisTemplate redis;
     private final MercadoPagoGateway mpGateway;
     private final TransactionEventProducer eventProducer;
+    private final UserServiceClient userClient;
 
     public RefundService(TransactionRepository transactionRepository,
                          RefundRepository refundRepository,
                          AuditLogRepository auditLogRepository,
                          StringRedisTemplate redis,
                          MercadoPagoGateway mpGateway,
-                         TransactionEventProducer eventProducer) {
+                         TransactionEventProducer eventProducer,
+                         UserServiceClient userClient) {
         this.transactionRepository = transactionRepository;
         this.refundRepository = refundRepository;
         this.auditLogRepository = auditLogRepository;
         this.redis = redis;
         this.mpGateway = mpGateway;
         this.eventProducer = eventProducer;
+        this.userClient = userClient;
     }
 
     @Transactional
@@ -128,9 +132,12 @@ public class RefundService {
         transactionRepository.save(transaction);
 
         if (mpRefund.success()) {
+            var customerEmail = userClient.fetchUserDetails(transaction.getCustomerId())
+                .map(UserServiceClient.UserDetails::email)
+                .orElse(null);
             var refundedEvent = new TransactionRefundedEvent(
                 refundId, transactionId, transaction.getOrderId(),
-                null, refundAmount, isFullRefund,
+                customerEmail, refundAmount, isFullRefund,
                 request.reason().name(), refund.getEstimatedArrivalDays(),
                 Instant.now()
             );

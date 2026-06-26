@@ -70,6 +70,11 @@ public class TransactionEventConsumer {
     public void consumeTransactionFailed(TransactionFailedEvent event) {
         log.info("Received transaction.failed event for transactionId={}", event.transactionId());
 
+        if (event.customerEmail() == null) {
+            log.warn("transaction.failed event has no customerEmail, skipping notification. transactionId={}", event.transactionId());
+            return;
+        }
+
         var formattedAmount = String.format("R$ %.2f", event.amountInCents() / 100.0);
         emailService.sendEmail(
                 event.customerEmail(),
@@ -87,17 +92,21 @@ public class TransactionEventConsumer {
     public void consumeTransactionRefunded(TransactionRefundedEvent event) {
         log.info("Received transaction.refunded event for transactionId={}", event.transactionId());
 
+        if (event.customerEmail() == null) {
+            log.warn("transaction.refunded event has no customerEmail, skipping notification. refundId={}", event.refundId());
+            return;
+        }
+
         var formattedAmount = String.format("R$ %.2f", event.amountRefundedInCents() / 100.0);
+        var refundVars = new HashMap<String, Object>();
+        refundVars.put("formattedAmount", formattedAmount);
+        refundVars.put("estimatedArrivalDays", event.estimatedArrivalDays() != null ? event.estimatedArrivalDays() : 5);
+        refundVars.put("refundId", event.refundId() != null ? event.refundId() : "");
         emailService.sendEmail(
                 event.customerEmail(),
                 "Estorno processado — " + formattedAmount,
                 "refund-confirmed",
-                Map.of(
-                        "formattedAmount", formattedAmount,
-                        "estimatedArrivalDays", event.estimatedArrivalDays() != null
-                                ? event.estimatedArrivalDays() : 5,
-                        "refundId", event.refundId()
-                ),
+                refundVars,
                 event.refundId()
         );
     }

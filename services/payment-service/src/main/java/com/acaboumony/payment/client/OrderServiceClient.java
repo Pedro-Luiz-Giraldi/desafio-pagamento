@@ -14,6 +14,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 
 import java.time.Duration;
+import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Component
@@ -72,13 +74,45 @@ public class OrderServiceClient {
         }
     }
 
+    public Optional<OrderDetails> fetchOrderDetails(UUID orderId) {
+        try {
+            return circuitBreaker.executeSupplier(() -> {
+                var headers = new HttpHeaders();
+                headers.set("X-Internal-Secret", internalSecret);
+
+                var entity = new HttpEntity<Void>(headers);
+                ResponseEntity<OrderData> response = restTemplate.exchange(
+                    orderServiceUrl + "/internal/orders/{orderId}",
+                    HttpMethod.GET,
+                    entity,
+                    OrderData.class,
+                    orderId
+                );
+
+                var body = response.getBody();
+                if (body == null) return Optional.<OrderDetails>empty();
+
+                var items = body.items() != null ? body.items() : List.<OrderDetails.ItemDto>of();
+                return Optional.of(new OrderDetails(body.orderId(), body.status(), body.totalInCents(), items));
+            });
+        } catch (Exception e) {
+            log.warn("Could not fetch order details for {}: {}", orderId, e.getMessage());
+            return Optional.empty();
+        }
+    }
+
     public record OrderValidationResult(boolean valid, String errorCode) {}
+
+    public record OrderDetails(UUID orderId, String status, Long totalInCents, List<ItemDto> items) {
+        public record ItemDto(String description, Integer quantity, Long unitPriceInCents) {}
+    }
 
     private record OrderData(
         UUID orderId,
         UUID customerId,
         UUID merchantId,
         String status,
-        Long totalInCents
+        Long totalInCents,
+        List<OrderDetails.ItemDto> items
     ) {}
 }

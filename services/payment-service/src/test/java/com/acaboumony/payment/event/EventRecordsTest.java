@@ -20,7 +20,7 @@ class EventRecordsTest {
             "txn_001", 123L, UUID.randomUUID(), UUID.randomUUID(),
             UUID.randomUUID(), "c@t.com", "m@t.com",
             5000L, "BRL", "visa", "1234", 1,
-            items, Instant.now(), "APPROVED"
+            items, Instant.now()
         );
 
         assertEquals("txn_001", event.transactionId());
@@ -37,7 +37,6 @@ class EventRecordsTest {
         assertEquals(1, event.installments());
         assertEquals(2, event.items().size());
         assertNotNull(event.processedAt());
-        assertEquals("APPROVED", event.status());
     }
 
     @Test
