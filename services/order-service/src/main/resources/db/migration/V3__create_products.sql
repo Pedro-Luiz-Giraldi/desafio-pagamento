@@ -1,3 +1,5 @@
+SET search_path TO order_service;
+
 CREATE TABLE products (
     id UUID PRIMARY KEY,
     merchant_id UUID NOT NULL,
