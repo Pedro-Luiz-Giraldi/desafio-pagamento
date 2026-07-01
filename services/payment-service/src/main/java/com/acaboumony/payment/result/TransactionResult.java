@@ -26,14 +26,36 @@ public sealed interface TransactionResult permits
     static TransactionResponse toResponse(TransactionResult result) {
         return switch (result) {
             case Approved a -> new TransactionResponse(
-                a.transactionId(), a.mpPaymentId(), a.orderId(),
-                "APPROVED", null, null, null, null, null,
-                a.processingTimeMs(), null, null
+                a.transactionId(),
+                a.mpPaymentId(),
+                a.orderId(),
+                null, // customerId
+                null, // merchantId
+                "APPROVED",
+                null, // amountInCents
+                null, // currency
+                null, // cardBrand
+                null, // cardLastFour
+                null, // installments
+                a.processingTimeMs(),
+                null, // createdAt
+                null  // refunds
             );
             case Failed f -> new TransactionResponse(
-                null, null, null, "FAILURE",
-                null, null, null, null, null,
-                f.processingTimeMs(), null, null
+                null, // transactionId
+                null, // mpPaymentId
+                null, // orderId
+                null, // customerId
+                null, // merchantId
+                "FAILURE",
+                null, // amountInCents
+                null, // currency
+                null, // cardBrand
+                null, // cardLastFour
+                null, // installments
+                f.processingTimeMs(),
+                null, // createdAt
+                null  // refunds
             );
         };
     }

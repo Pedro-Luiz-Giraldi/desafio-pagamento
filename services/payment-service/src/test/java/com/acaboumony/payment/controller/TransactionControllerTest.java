@@ -106,7 +106,7 @@ class TransactionControllerTest {
     void getTransaction_whenFound_returns200() throws Exception {
         var merchantId = UUID.randomUUID();
         var tx = new TransactionResponse("txn_001", 123L, UUID.randomUUID(),
-            "APPROVED", 5000L, "BRL", "visa", "1234",
+            null, merchantId, "APPROVED", 5000L, "BRL", "visa", "1234",
             1, 500L, null, null);
         when(transactionService.findById("txn_001", merchantId)).thenReturn(Optional.of(tx));
 
@@ -329,7 +329,7 @@ class TransactionControllerTest {
         var merchantId = UUID.randomUUID();
         var requestId = UUID.randomUUID().toString();
         var tx = new TransactionResponse("txn_001", 123L, UUID.randomUUID(),
-            "APPROVED", 5000L, "BRL", "visa", "1234",
+            null, merchantId, "APPROVED", 5000L, "BRL", "visa", "1234",
             1, 500L, null, null);
         when(transactionService.findById("txn_001", merchantId)).thenReturn(Optional.of(tx));
 

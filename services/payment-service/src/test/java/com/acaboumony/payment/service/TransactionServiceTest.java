@@ -448,7 +448,7 @@ class TransactionServiceTest {
         var merchantId = UUID.randomUUID();
         var cacheKey = "transaction:txn_001:" + merchantId;
         var txResponse = new TransactionResponse("txn_001", 123L, UUID.randomUUID(),
-            "APPROVED", 5000L, "BRL", "visa", "1234", 1, 500L, null, null);
+            null, null, "APPROVED", 5000L, "BRL", "visa", "1234", 1, 500L, null, null);
         var cachedJson = objectMapper.writeValueAsString(txResponse);
 
         when(redis.opsForValue()).thenReturn(valueOps);
@@ -471,7 +471,7 @@ class TransactionServiceTest {
         tx.setMpPaymentId(123L);
 
         var txResponse = new TransactionResponse("txn_001", 123L, tx.getOrderId(),
-            "APPROVED", 8990L, "BRL", "visa", "1234", 1, 500L, null, null);
+            null, null, "APPROVED", 8990L, "BRL", "visa", "1234", 1, 500L, null, null);
 
         when(redis.opsForValue()).thenReturn(valueOps);
         when(valueOps.get(cacheKey)).thenReturn(null);
@@ -512,7 +512,7 @@ class TransactionServiceTest {
             8990L, "BRL", "visa", TransactionStatus.APPROVED, UUID.randomUUID());
 
         var txResponse = new TransactionResponse("txn_001", 123L, tx.getOrderId(),
-            "APPROVED", 8990L, "BRL", "visa", "1234", 1, 500L, null, null);
+            null, null, "APPROVED", 8990L, "BRL", "visa", "1234", 1, 500L, null, null);
 
         when(redis.opsForValue()).thenThrow(new RuntimeException("Redis down"));
         when(transactionRepository.findByTransactionId("txn_001")).thenReturn(Optional.of(tx));
@@ -528,7 +528,7 @@ class TransactionServiceTest {
     void findById_oneArg_withCacheHit_returnsCachedResponse() throws Exception {
         var cacheKey = "transaction:txn_001";
         var txResponse = new TransactionResponse("txn_001", 123L, UUID.randomUUID(),
-            "APPROVED", 5000L, "BRL", "visa", "1234", 1, 500L, null, null);
+            null, null, "APPROVED", 5000L, "BRL", "visa", "1234", 1, 500L, null, null);
         var cachedJson = objectMapper.writeValueAsString(txResponse);
 
         when(redis.opsForValue()).thenReturn(valueOps);
@@ -549,7 +549,7 @@ class TransactionServiceTest {
             8990L, "BRL", "visa", TransactionStatus.APPROVED, UUID.randomUUID());
 
         var txResponse = new TransactionResponse("txn_001", 123L, tx.getOrderId(),
-            "APPROVED", 8990L, "BRL", "visa", "1234", 1, 500L, null, null);
+            null, null, "APPROVED", 8990L, "BRL", "visa", "1234", 1, 500L, null, null);
 
         when(redis.opsForValue()).thenReturn(valueOps);
         when(valueOps.get(cacheKey)).thenReturn(null);
@@ -571,7 +571,7 @@ class TransactionServiceTest {
             8990L, "BRL", "visa", TransactionStatus.APPROVED, UUID.randomUUID());
 
         var txResponse = new TransactionResponse("txn_001", 123L, tx.getOrderId(),
-            "APPROVED", 8990L, "BRL", "visa", "1234", 1, 500L, null, null);
+            null, null, "APPROVED", 8990L, "BRL", "visa", "1234", 1, 500L, null, null);
 
         when(redis.opsForValue()).thenThrow(new RuntimeException("Redis down"));
         when(transactionRepository.findByTransactionId("txn_001")).thenReturn(Optional.of(tx));

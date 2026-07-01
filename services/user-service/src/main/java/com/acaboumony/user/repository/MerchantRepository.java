@@ -1,8 +1,10 @@
 package com.acaboumony.user.repository;
 
 import com.acaboumony.user.domain.entity.Merchant;
+import com.acaboumony.user.domain.enums.MerchantStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 

@@ -69,7 +69,7 @@ class DtoRecordsTest {
             new TransactionResponse.RefundSummary("ref_1", 1000L, true, "FRAUD", Instant.now())
         );
         var response = new TransactionResponse(
-            "txn_001", 123L, UUID.randomUUID(), "APPROVED",
+            "txn_001", 123L, UUID.randomUUID(), null, null, "APPROVED",
             5000L, "BRL", "visa", "1234", 1, 150L,
             Instant.now(), refunds
         );
