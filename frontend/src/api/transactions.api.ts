@@ -19,7 +19,7 @@ export const transactionsApi = {
     return response.data
   },
 
-  async list(params?: { page?: number; size?: number; status?: string; customerId?: string }): Promise<PaginatedResponse<Transaction>> {
+  async list(params?: { page?: number; size?: number; status?: string }): Promise<PaginatedResponse<Transaction>> {
     const response = await client.get<PaginatedResponse<Transaction>>('/api/v1/transactions', { params })
     return response.data
   },

@@ -38,7 +38,7 @@ export function RegisterPage() {
     const nextErrors: typeof errors = {
       fullName: fullName.trim() ? undefined : 'Nome obrigatorio',
       email: email.trim() ? undefined : 'Email obrigatorio',
-      password: password ? undefined : 'Senha obrigatoria',
+      password: !password ? 'Senha obrigatoria' : password.length < 8 ? 'Senha deve ter no minimo 8 caracteres' : undefined,
       companyName: undefined,
       cnpj: undefined,
     }

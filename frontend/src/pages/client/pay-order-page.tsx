@@ -5,6 +5,7 @@ import { useProcessPayment } from '@/hooks/use-transactions'
 import { useAuthStore } from '@/stores/auth.store'
 import { Button, Input, Spinner } from '@/components/ui'
 import { v4 as uuidv4 } from 'uuid'
+import { detectCardBrand, formatCardNumber, getCardBrandName } from '@/lib/card-utils'
 
 declare global {
   interface Window {
@@ -33,6 +34,7 @@ export function PayOrderPage() {
   const [error, setError] = useState<string | null>(null)
   const [processing, setProcessing] = useState(false)
   const [result, setResult] = useState<'success' | 'failed' | null>(null)
+  const [detectedBrand, setDetectedBrand] = useState<string>('')
 
   useEffect(() => {
     if (!mpInitialized.current && typeof window !== 'undefined' && !document.querySelector('script[src*="mercadopago"]')) {
@@ -63,7 +65,8 @@ export function PayOrderPage() {
     )
   }
 
-  const order = 'order' in orderData ? (orderData as any).order : orderData
+  // Extract order from API response
+  const order = orderData?.data || orderData
 
   if (order.status !== 'PENDING') {
     return (
@@ -90,9 +93,18 @@ export function PayOrderPage() {
     setProcessing(true)
 
     try {
-      const mp = new window.MercadoPago(import.meta.env.VITE_MP_PUBLIC_KEY || '')
+      // Validate Mercado Pago public key
+      const publicKey = import.meta.env.VITE_MP_PUBLIC_KEY
+      if (!publicKey || publicKey === '') {
+        throw new Error('Mercado Pago não configurado. Entre em contato com o suporte.')
+      }
+
+      const mp = new window.MercadoPago(publicKey)
       const [expMonth, expYear] = cardExpiry.split('/').map((s) => s.trim())
 
+      // Detect card brand
+      const paymentMethodId = detectCardBrand(cardNumber)
+      
       const cardToken = await mp.createCardToken({
         cardNumber: cardNumber.replace(/\s/g, ''),
         cardExpirationMonth: expMonth,
@@ -107,7 +119,7 @@ export function PayOrderPage() {
         customerId: user!.userId,
         orderId: orderId!,
         cardToken: cardToken.id,
-        paymentMethodId: 'credit_card',
+        paymentMethodId,
         installments,
         idempotencyKey: uuidv4(),
       })
@@ -120,10 +132,24 @@ export function PayOrderPage() {
         setResult('failed')
       }
     } catch (err: any) {
+      console.error('Payment error:', err)
       setError(err?.message || 'Erro ao processar pagamento. Tente novamente.')
       setResult('failed')
     } finally {
       setProcessing(false)
+    }
+  }
+
+  function handleCardNumberChange(value: string) {
+    const formatted = formatCardNumber(value)
+    setCardNumber(formatted)
+    
+    // Detect brand as user types
+    if (value.replace(/\s/g, '').length >= 6) {
+      const brand = detectCardBrand(value)
+      setDetectedBrand(brand)
+    } else {
+      setDetectedBrand('')
     }
   }
 
@@ -155,14 +181,21 @@ export function PayOrderPage() {
           placeholder="Nome como esta no cartao"
           required
         />
-        <Input
-          label="Numero do Cartao"
-          value={cardNumber}
-          onChange={(e) => setCardNumber(e.target.value)}
-          placeholder="0000 0000 0000 0000"
-          maxLength={19}
-          required
-        />
+        <div>
+          <Input
+            label="Numero do Cartao"
+            value={cardNumber}
+            onChange={(e) => handleCardNumberChange(e.target.value)}
+            placeholder="0000 0000 0000 0000"
+            maxLength={19}
+            required
+          />
+          {detectedBrand && (
+            <p className="text-xs text-gray-500 mt-1">
+              Bandeira detectada: <span className="font-medium">{getCardBrandName(detectedBrand)}</span>
+            </p>
+          )}
+        </div>
         <div className="grid grid-cols-2 gap-4">
           <Input
             label="Validade"

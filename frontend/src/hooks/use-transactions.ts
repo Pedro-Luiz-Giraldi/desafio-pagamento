@@ -15,7 +15,7 @@ export function useProcessPayment() {
   })
 }
 
-export function useTransactionsList(params?: { page?: number; size?: number; status?: string; customerId?: string }) {
+export function useTransactionsList(params?: { page?: number; size?: number; status?: string }) {
   return useQuery({
     queryKey: [TRANSACTIONS_KEY, params],
     queryFn: () => transactionsApi.list(params),

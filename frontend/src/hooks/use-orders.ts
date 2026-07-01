@@ -8,6 +8,7 @@ export function useOrdersList(params?: { page?: number; size?: number; status?: 
   return useQuery({
     queryKey: [ORDERS_KEY, params],
     queryFn: () => ordersApi.list(params),
+    enabled: true,
   })
 }
 

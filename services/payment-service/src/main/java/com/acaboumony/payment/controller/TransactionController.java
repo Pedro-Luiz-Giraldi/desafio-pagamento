@@ -132,7 +132,7 @@ public class TransactionController {
             @RequestParam(required = false) UUID customerId,
             @RequestHeader("X-User-Id") UUID userId,
             @RequestHeader("X-User-Role") String userRole,
-            @RequestHeader("X-Merchant-Id") UUID merchantId,
+            @RequestHeader(value = "X-Merchant-Id", required = false) UUID merchantId,
             @RequestParam(required = false) String status,
             @RequestHeader(value = "X-Request-Id", required = false) String requestId,
             Pageable pageable) {

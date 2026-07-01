@@ -5,14 +5,44 @@ import { useTransactionsList } from '@/hooks/use-transactions'
 
 export function ClientDashboardPage() {
   const user = useAuthStore((state) => state.user)
-  const userId = user?.userId
 
-  const { data: ordersPage } = useOrdersList({ customerId: userId, page: 0, size: 5 })
-  const { data: transactionsPage } = useTransactionsList({ customerId: userId, page: 0, size: 5 })
+  const { data: ordersPage, isLoading: ordersLoading, error: ordersError } = useOrdersList({ page: 0, size: 5 })
+  const { data: transactionsPage, isLoading: transactionsLoading, error: transactionsError } = useTransactionsList({ page: 0, size: 5 })
 
-  const orders = ordersPage?.data ?? []
+  if (ordersLoading || transactionsLoading) {
+    return (
+      <div className="p-6">
+        <p className="text-gray-500">Carregando...</p>
+      </div>
+    )
+  }
+
+  if (ordersError || transactionsError) {
+    console.error('Dashboard error:', { ordersError, transactionsError })
+    return (
+      <div className="p-6">
+        <div className="rounded-lg border border-red-200 bg-red-50 p-4">
+          <p className="text-sm text-red-800">
+            Erro ao carregar dados. Por favor, tente novamente.
+          </p>
+          {ordersError && (
+            <p className="text-xs text-red-600 mt-2">
+              Erro nos pedidos: {ordersError instanceof Error ? ordersError.message : 'Erro desconhecido'}
+            </p>
+          )}
+          {transactionsError && (
+            <p className="text-xs text-red-600 mt-2">
+              Erro nas transações: {transactionsError instanceof Error ? transactionsError.message : 'Erro desconhecido'}
+            </p>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  const orders = Array.isArray(ordersPage?.data) ? ordersPage.data : []
   const pendingOrders = orders.filter((o: any) => o.status === 'PENDING')
-  const transactions = transactionsPage?.data ?? []
+  const transactions = Array.isArray(transactionsPage?.data) ? transactionsPage.data : []
 
   return (
     <div className="p-6 space-y-6">
