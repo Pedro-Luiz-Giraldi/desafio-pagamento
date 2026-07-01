@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useAuthStore } from '@/stores/auth.store'
 import { useTransactionsList } from '@/hooks/use-transactions'
 import { Card, CardContent, CardHeader, CardTitle, Skeleton } from '@/components/ui'
 import { StatusBadge } from '@/components/status-badge'
@@ -9,12 +10,14 @@ import { PAGE_SIZE } from '@/lib/constants'
 
 export function TransactionsListPage() {
   const navigate = useNavigate()
+  const user = useAuthStore((state) => state.user)
   const [page, setPage] = useState(0)
   const [statusFilter, setStatusFilter] = useState('')
   const { data, isLoading, isError } = useTransactionsList({
     page,
     size: PAGE_SIZE,
     status: statusFilter || undefined,
+    customerId: user?.role === 'CUSTOMER' ? user.userId : undefined,
   })
 
   const statusOptions = [

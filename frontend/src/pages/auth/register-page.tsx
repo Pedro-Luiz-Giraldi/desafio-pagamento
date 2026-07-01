@@ -7,7 +7,10 @@ import { PublicLayout } from '@/layouts/public-layout'
 import { cleanCnpj, formatCnpj, validateCnpjChecksum, validateCnpjFormat } from '@/utils/validation'
 import { FormError } from './form-error'
 
+type Role = 'CUSTOMER' | 'MERCHANT_OWNER'
+
 export function RegisterPage() {
+  const [role, setRole] = useState<Role>('MERCHANT_OWNER')
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -32,27 +35,31 @@ export function RegisterPage() {
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
 
-    // Validate CNPJ
-    let cnpjError: string | undefined
-    if (!cnpj.trim()) {
-      cnpjError = 'CNPJ obrigatorio'
-    } else if (!validateCnpjFormat(cnpj)) {
-      cnpjError = 'CNPJ invalido (use XX.XXX.XXX/XXXX-XX)'
-    } else if (!validateCnpjChecksum(cnpj)) {
-      cnpjError = 'CNPJ invalido'
-    }
-
-    const nextErrors = {
+    const nextErrors: typeof errors = {
       fullName: fullName.trim() ? undefined : 'Nome obrigatorio',
       email: email.trim() ? undefined : 'Email obrigatorio',
       password: password ? undefined : 'Senha obrigatoria',
-      companyName: companyName.trim() ? undefined : 'Nome da empresa obrigatorio',
-      cnpj: cnpjError,
+      companyName: undefined,
+      cnpj: undefined,
     }
+
+    if (role === 'MERCHANT_OWNER') {
+      let cnpjError: string | undefined
+      if (!cnpj.trim()) {
+        cnpjError = 'CNPJ obrigatorio'
+      } else if (!validateCnpjFormat(cnpj)) {
+        cnpjError = 'CNPJ invalido (use XX.XXX.XXX/XXXX-XX)'
+      } else if (!validateCnpjChecksum(cnpj)) {
+        cnpjError = 'CNPJ invalido'
+      }
+      nextErrors.companyName = companyName.trim() ? undefined : 'Nome da empresa obrigatorio'
+      nextErrors.cnpj = cnpjError
+    }
+
     setErrors(nextErrors)
     setFormError(null)
 
-    if (nextErrors.fullName || nextErrors.email || nextErrors.password || nextErrors.companyName || nextErrors.cnpj) {
+    if (Object.values(nextErrors).some(Boolean)) {
       return
     }
 
@@ -62,16 +69,13 @@ export function RegisterPage() {
         fullName,
         email,
         password,
-        companyName,
-        cnpj: cleanCnpj(cnpj),
+        role,
+        ...(role === 'MERCHANT_OWNER' ? { companyName, cnpj: cleanCnpj(cnpj) } : {}),
       })
       setSuccess(true)
     } catch (error) {
-      // Handle Axios error with response data
       if (axios.isAxiosError(error) && error.response?.data) {
         const data = error.response.data
-
-        // Check for field-specific errors from backend
         if (data.errors) {
           setErrors({
             companyName: data.errors.companyName ? 'Nome da empresa invalido' : undefined,
@@ -109,22 +113,55 @@ export function RegisterPage() {
           ) : (
             <form aria-label="Formulario de cadastro" className="space-y-4" onSubmit={handleSubmit}>
               <FormError message={formError} />
+
+              {/* Role Toggle */}
+              <div className="flex rounded-lg border border-gray-300 overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setRole('CUSTOMER')}
+                  className={`flex-1 py-2 text-sm font-medium transition-colors ${
+                    role === 'CUSTOMER'
+                      ? 'bg-indigo-600 text-white'
+                      : 'bg-white text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  Sou Cliente
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRole('MERCHANT_OWNER')}
+                  className={`flex-1 py-2 text-sm font-medium transition-colors ${
+                    role === 'MERCHANT_OWNER'
+                      ? 'bg-indigo-600 text-white'
+                      : 'bg-white text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  Sou Merchant
+                </button>
+              </div>
+
               <Input label="Nome" value={fullName} error={errors.fullName} onChange={(event) => setFullName(event.target.value)} />
-              <Input
-                label="Nome da Empresa"
-                value={companyName}
-                error={errors.companyName}
-                onChange={(event) => setCompanyName(event.target.value)}
-                placeholder="Ex: Loja da Ana"
-              />
-              <Input
-                label="CNPJ"
-                value={cnpj}
-                error={errors.cnpj}
-                onChange={handleCnpjChange}
-                placeholder="XX.XXX.XXX/XXXX-XX"
-                maxLength={18}
-              />
+
+              {role === 'MERCHANT_OWNER' && (
+                <>
+                  <Input
+                    label="Nome da Empresa"
+                    value={companyName}
+                    error={errors.companyName}
+                    onChange={(event) => setCompanyName(event.target.value)}
+                    placeholder="Ex: Loja da Ana"
+                  />
+                  <Input
+                    label="CNPJ"
+                    value={cnpj}
+                    error={errors.cnpj}
+                    onChange={handleCnpjChange}
+                    placeholder="XX.XXX.XXX/XXXX-XX"
+                    maxLength={18}
+                  />
+                </>
+              )}
+
               <Input label="Email" type="email" value={email} error={errors.email} onChange={(event) => setEmail(event.target.value)} />
               <Input
                 label="Senha"
@@ -136,6 +173,9 @@ export function RegisterPage() {
               <Button className="w-full" type="submit" disabled={submitting}>
                 {submitting ? <Spinner label="Criando conta" /> : 'Criar conta'}
               </Button>
+              <Link className="block text-center text-sm font-medium text-emerald-800 hover:text-emerald-900" to="/login">
+                Ja tem conta? Entre
+              </Link>
             </form>
           )}
         </CardContent>

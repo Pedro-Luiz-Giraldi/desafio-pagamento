@@ -55,7 +55,9 @@ export function DashboardPage() {
             <CardTitle>⚡ Ações Rápidas</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
-            <Button className="w-full" onClick={() => navigate('/orders/new')}>Novo Pedido</Button>
+            {user?.role === 'CUSTOMER' && (
+              <Button className="w-full" onClick={() => navigate('/orders/new')}>Novo Pedido</Button>
+            )}
             <Button variant="secondary" className="w-full" onClick={() => navigate('/transactions')}>Ver Transações</Button>
           </CardContent>
         </Card>

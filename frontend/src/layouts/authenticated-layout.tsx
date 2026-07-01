@@ -9,11 +9,20 @@ interface AuthenticatedLayoutProps {
   children: React.ReactNode
 }
 
-const menuItems = [
+const merchantMenuItems = [
   { label: 'Dashboard', icon: '📊', path: '/' },
   { label: 'Pedidos', icon: '📦', path: '/orders' },
-  { label: 'Transações', icon: '💳', path: '/transactions' },
-  { label: 'Configurações', icon: '⚙️', path: '/settings' },
+  { label: 'Transacoes', icon: '💳', path: '/transactions' },
+  { label: 'Produtos', icon: '🏪', path: '/products' },
+  { label: 'Configuracoes', icon: '⚙️', path: '/settings' },
+]
+
+const clientMenuItems = [
+  { label: 'Dashboard', icon: '📊', path: '/' },
+  { label: 'Meus Pedidos', icon: '📦', path: '/orders' },
+  { label: 'Minhas Transacoes', icon: '💳', path: '/transactions' },
+  { label: 'Lojas', icon: '🏪', path: '/merchants' },
+  { label: 'Configuracoes', icon: '⚙️', path: '/settings' },
 ]
 
 export function AuthenticatedLayout({ children }: AuthenticatedLayoutProps) {
@@ -21,6 +30,8 @@ export function AuthenticatedLayout({ children }: AuthenticatedLayoutProps) {
   const user = useAuthStore((state) => state.user)
   const clearAuth = useAuthStore((state) => state.clear)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+
+  const menuItems = user?.role === 'CUSTOMER' ? clientMenuItems : merchantMenuItems
 
   const handleLogout = async () => {
     try {
@@ -65,6 +76,15 @@ export function AuthenticatedLayout({ children }: AuthenticatedLayoutProps) {
               <span>{item.label}</span>
             </NavLink>
           ))}
+          {user?.role === 'CUSTOMER' && (
+            <NavLink
+              to="/orders/new"
+              className="flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium bg-indigo-600 text-white hover:bg-indigo-700 transition-colors mt-4"
+            >
+              <span className="text-lg">➕</span>
+              <span>Novo Pedido</span>
+            </NavLink>
+          )}
         </nav>
 
         {/* Footer */}
@@ -117,6 +137,16 @@ export function AuthenticatedLayout({ children }: AuthenticatedLayoutProps) {
                   <span>{item.label}</span>
                 </NavLink>
               ))}
+              {user?.role === 'CUSTOMER' && (
+                <NavLink
+                  to="/orders/new"
+                  onClick={closeMobileMenu}
+                  className="flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium bg-indigo-600 text-white hover:bg-indigo-700 transition-colors mt-4"
+                >
+                  <span className="text-lg">➕</span>
+                  <span>Novo Pedido</span>
+                </NavLink>
+              )}
             </nav>
 
             {/* Footer */}

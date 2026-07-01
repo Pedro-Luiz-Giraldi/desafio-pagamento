@@ -1,10 +1,21 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { transactionsApi } from '@/api/transactions.api'
+import type { CreateTransactionInput } from '@/api/transactions.api'
 import type { RefundRequest } from '@/types/transaction'
 
 const TRANSACTIONS_KEY = 'transactions'
 
-export function useTransactionsList(params?: { page?: number; size?: number; status?: string }) {
+export function useProcessPayment() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (input: CreateTransactionInput) => transactionsApi.create(input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [TRANSACTIONS_KEY] })
+    },
+  })
+}
+
+export function useTransactionsList(params?: { page?: number; size?: number; status?: string; customerId?: string }) {
   return useQuery({
     queryKey: [TRANSACTIONS_KEY, params],
     queryFn: () => transactionsApi.list(params),

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
+import { useAuthStore } from '@/stores/auth.store'
 import { useOrder, useCancelOrder } from '@/hooks/use-orders'
 import { Button, Card, CardContent, CardHeader, CardTitle, Skeleton, Spinner } from '@/components/ui'
 import { StatusBadge } from '@/components/status-badge'
@@ -10,6 +11,7 @@ import { toast } from '@/lib/toast-store'
 export function OrderDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const user = useAuthStore((state) => state.user)
   const { data, isLoading, isError } = useOrder(id ?? '')
   const cancelOrder = useCancelOrder()
   const [showConfirm, setShowConfirm] = useState(false)
@@ -59,6 +61,11 @@ export function OrderDetailPage() {
           {canCancel && (
             <Button variant="danger" onClick={() => setShowConfirm(true)} disabled={cancelOrder.isPending}>
               {cancelOrder.isPending ? <Spinner label="Cancelando" /> : 'Cancelar Pedido'}
+            </Button>
+          )}
+          {user?.role === 'CUSTOMER' && order.status === 'PENDING' && !order.transactionId && (
+            <Button onClick={() => navigate(`/pay/${order.orderId}`)}>
+              Pagar
             </Button>
           )}
         </div>

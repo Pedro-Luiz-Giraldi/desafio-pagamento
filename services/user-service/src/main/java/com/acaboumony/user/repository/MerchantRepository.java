@@ -11,4 +11,6 @@ public interface MerchantRepository extends JpaRepository<Merchant, UUID> {
     Optional<Merchant> findByCnpj(String cnpj);
 
     boolean existsByCnpj(String cnpj);
+
+    List<Merchant> findByStatus(MerchantStatus status);
 }

@@ -14,6 +14,11 @@ import { TransactionsListPage } from '@/pages/transactions/transactions-list-pag
 import { TransactionDetailPage } from '@/pages/transactions/transaction-detail-page'
 import { SettingsPage } from '@/pages/settings/settings-page'
 import { TwoFactorSetupPage } from '@/pages/settings/two-factor-setup-page'
+import { ClientDashboardPage } from '@/pages/client/client-dashboard-page'
+import { MerchantsListPage } from '@/pages/client/merchants-list-page'
+import { MerchantDetailPage } from '@/pages/client/merchant-detail-page'
+import { ProductsPage } from '@/pages/merchant/products-page'
+import { PayOrderPage } from '@/pages/client/pay-order-page'
 import { NotFoundPage } from '@/pages/not-found-page'
 
 export default function App() {
@@ -50,7 +55,7 @@ export default function App() {
         <Route
           path="/orders/new"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={['CUSTOMER']}>
               <AuthenticatedLayout>
                 <OrderCreatePage />
               </AuthenticatedLayout>
@@ -103,6 +108,61 @@ export default function App() {
             <ProtectedRoute>
               <AuthenticatedLayout>
                 <TwoFactorSetupPage />
+              </AuthenticatedLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Client Routes */}
+        <Route
+          path="/client/dashboard"
+          element={
+            <ProtectedRoute allowedRoles={['CUSTOMER']}>
+              <AuthenticatedLayout>
+                <ClientDashboardPage />
+              </AuthenticatedLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/merchants"
+          element={
+            <ProtectedRoute allowedRoles={['CUSTOMER']}>
+              <AuthenticatedLayout>
+                <MerchantsListPage />
+              </AuthenticatedLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/merchants/:id"
+          element={
+            <ProtectedRoute allowedRoles={['CUSTOMER']}>
+              <AuthenticatedLayout>
+                <MerchantDetailPage />
+              </AuthenticatedLayout>
+            </ProtectedRoute>
+          }
+        />
+          <Route
+            path="/pay/:orderId"
+            element={
+              <ProtectedRoute allowedRoles={['CUSTOMER']}>
+                <AuthenticatedLayout>
+                  <PayOrderPage />
+                </AuthenticatedLayout>
+              </ProtectedRoute>
+            }
+          />
+
+
+        {/* Merchant Routes */}
+        <Route
+          path="/products"
+          element={
+            <ProtectedRoute allowedRoles={['MERCHANT_OWNER']}>
+              <AuthenticatedLayout>
+                <ProductsPage />
               </AuthenticatedLayout>
             </ProtectedRoute>
           }

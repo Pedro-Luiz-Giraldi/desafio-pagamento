@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useAuthStore } from '@/stores/auth.store'
 import { useOrdersList } from '@/hooks/use-orders'
 import { Button, Card, CardContent, CardHeader, CardTitle, Skeleton } from '@/components/ui'
 import { StatusBadge } from '@/components/status-badge'
@@ -9,6 +10,7 @@ import { PAGE_SIZE } from '@/lib/constants'
 
 export function OrdersListPage() {
   const navigate = useNavigate()
+  const user = useAuthStore((state) => state.user)
   const [page, setPage] = useState(0)
   const [statusFilter, setStatusFilter] = useState('')
   const { data, isLoading, isError } = useOrdersList({
@@ -29,9 +31,11 @@ export function OrdersListPage() {
     <div className="space-y-4 md:space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h2 className="text-2xl font-bold text-gray-900">Pedidos</h2>
-        <Button onClick={() => navigate('/orders/new')} className="w-full sm:w-auto">
-          Novo Pedido
-        </Button>
+        {user?.role === 'CUSTOMER' && (
+          <Button onClick={() => navigate('/orders/new')} className="w-full sm:w-auto">
+            Novo Pedido
+          </Button>
+        )}
       </div>
 
       <Card>
@@ -72,6 +76,7 @@ export function OrdersListPage() {
                       <th className="pb-3 font-medium">Total</th>
                       <th className="pb-3 font-medium">Status</th>
                       <th className="pb-3 font-medium">Data</th>
+                      <th className="pb-3 font-medium"></th>
                     </tr>
                   </thead>
                   <tbody>
@@ -86,6 +91,17 @@ export function OrdersListPage() {
                         <td className="py-3 font-medium text-gray-900">{formatCents(order.totalInCents)}</td>
                         <td className="py-3"><StatusBadge status={order.status} /></td>
                         <td className="py-3 text-gray-500">{formatDate(order.createdAt)}</td>
+                        <td className="py-3">
+                          {user?.role === 'CUSTOMER' && order.status === 'PENDING' && (
+                            <Button
+                              variant="ghost"
+                              className="px-2 py-1 min-h-0 text-xs"
+                              onClick={(e) => { e.stopPropagation(); navigate(`/pay/${order.orderId}`) }}
+                            >
+                              Pagar
+                            </Button>
+                          )}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -111,6 +127,14 @@ export function OrdersListPage() {
                       <span className="text-lg font-semibold text-gray-900">{formatCents(order.totalInCents)}</span>
                       <span className="text-xs text-gray-500">{formatDate(order.createdAt)}</span>
                     </div>
+                    {user?.role === 'CUSTOMER' && order.status === 'PENDING' && (
+                      <Button
+                        className="w-full mt-2"
+                        onClick={(e) => { e.stopPropagation(); navigate(`/pay/${order.orderId}`) }}
+                      >
+                        Pagar
+                      </Button>
+                    )}
                   </div>
                 ))}
               </div>

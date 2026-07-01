@@ -8,6 +8,8 @@ public record TransactionResponse(
     String transactionId,
     Long mpPaymentId,
     UUID orderId,
+    UUID customerId,
+    UUID merchantId,
     String status,
     Long amountInCents,
     String currency,

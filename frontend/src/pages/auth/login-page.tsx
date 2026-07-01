@@ -50,13 +50,15 @@ export function LoginPage() {
         const userProfile = await usersApi.getProfile()
         console.log('[LoginPage] Profile response:', userProfile)
         setUser(userProfile)
-        console.log('[LoginPage] User set in store:', userProfile)
-      } catch (profileError) {
-        console.error('[LoginPage] Failed to fetch user profile:', profileError)
-        toast.error('Erro ao carregar perfil do usuário')
-      }
-      
-      navigate('/')
+      console.log('[LoginPage] User set in store:', userProfile)
+        } catch (profileError) {
+          console.error('[LoginPage] Failed to fetch user profile:', profileError)
+          toast.error('Erro ao carregar perfil do usuário')
+        }
+
+        // Redirect based on role
+        const redirectTo = userProfile?.role === 'CUSTOMER' ? '/client/dashboard' : '/'
+        navigate(redirectTo)
     } catch (error) {
       setFormError(error instanceof Error ? error.message : 'Nao foi possivel autenticar')
     } finally {

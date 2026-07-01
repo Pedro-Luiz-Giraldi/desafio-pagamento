@@ -37,10 +37,17 @@ public class TransactionController {
     @PostMapping
     public ResponseEntity<Map<String, Object>> processTransaction(
             @Valid @RequestBody TransactionRequest request,
+            @RequestHeader("X-User-Id") UUID userId,
+            @RequestHeader("X-User-Role") String userRole,
             @RequestHeader("X-User-Email") String customerEmail,
             @RequestHeader("X-Merchant-Id") UUID merchantId,
             @RequestHeader("X-Forwarded-For") String ipAddress,
             @RequestHeader(value = "X-Request-Id", required = false) String requestId) {
+
+        if ("CUSTOMER".equals(userRole) && !request.customerId().equals(userId)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(error("INSUFFICIENT_PERMISSIONS", "Customer ID does not match authenticated user", false, 0, requestId));
+        }
 
         var result = transactionService.processTransaction(request, customerEmail, merchantId, ipAddress);
 
@@ -90,8 +97,25 @@ public class TransactionController {
     @GetMapping("/{transactionId}")
     public ResponseEntity<Map<String, Object>> getTransaction(
             @PathVariable String transactionId,
-            @RequestHeader("X-Merchant-Id") UUID merchantId,
+            @RequestHeader("X-User-Id") UUID userId,
+            @RequestHeader("X-User-Role") String userRole,
+            @RequestHeader(value = "X-Merchant-Id", required = false) UUID merchantId,
             @RequestHeader(value = "X-Request-Id", required = false) String requestId) {
+        if ("CUSTOMER".equals(userRole)) {
+            var tx = transactionService.findById(transactionId);
+            if (tx == null || !tx.customerId().equals(userId)) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(error("INSUFFICIENT_PERMISSIONS", "Access denied", false, 0, requestId));
+            }
+            return ResponseEntity.ok(Map.of(
+                "data", tx,
+                "meta", metaMap(requestId)
+            ));
+        }
+        if (merchantId == null) {
+            return ResponseEntity.badRequest()
+                .body(error("MISSING_PARAMETER", "X-Merchant-Id is required", false, 0, requestId));
+        }
         var ownedTx = transactionService.findById(transactionId, merchantId);
         if (ownedTx.isEmpty()) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
@@ -105,17 +129,35 @@ public class TransactionController {
 
     @GetMapping
     public ResponseEntity<Map<String, Object>> listTransactions(
-            @RequestParam UUID customerId,
+            @RequestParam(required = false) UUID customerId,
+            @RequestHeader("X-User-Id") UUID userId,
+            @RequestHeader("X-User-Role") String userRole,
             @RequestHeader("X-Merchant-Id") UUID merchantId,
             @RequestParam(required = false) String status,
             @RequestHeader(value = "X-Request-Id", required = false) String requestId,
             Pageable pageable) {
+
+        UUID effectiveCustomerId;
+        if ("CUSTOMER".equals(userRole)) {
+            effectiveCustomerId = userId;
+            if (customerId != null && !customerId.equals(userId)) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(error("INSUFFICIENT_PERMISSIONS", "Cannot query another customer's transactions", false, 0, requestId));
+            }
+        } else {
+            if (customerId == null) {
+                return ResponseEntity.badRequest()
+                    .body(error("MISSING_PARAMETER", "customerId is required for non-CUSTOMER roles", false, 0, requestId));
+            }
+            effectiveCustomerId = customerId;
+        }
+
         Page<TransactionSummary> page;
         if (status != null && !status.isBlank()) {
-            page = transactionService.findByCustomerAndStatus(customerId, merchantId,
+            page = transactionService.findByCustomerAndStatus(effectiveCustomerId, merchantId,
                 TransactionStatus.valueOf(status.toUpperCase()), pageable);
         } else {
-            page = transactionService.findByCustomer(customerId, merchantId, pageable);
+            page = transactionService.findByCustomer(effectiveCustomerId, merchantId, pageable);
         }
         var meta = new java.util.LinkedHashMap<String, Object>();
         meta.put("timestamp", Instant.now().toString());

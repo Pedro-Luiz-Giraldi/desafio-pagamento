@@ -3,11 +3,15 @@ package com.acaboumony.user.service;
 import com.acaboumony.user.domain.entity.Merchant;
 import com.acaboumony.user.domain.entity.User;
 import com.acaboumony.user.domain.enums.MerchantStatus;
+import com.acaboumony.user.dto.response.MerchantSummaryResponse;
 import com.acaboumony.user.exception.CnpjAlreadyRegisteredException;
 import com.acaboumony.user.repository.MerchantRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+
+import java.util.List;
+import java.util.UUID;
 
 /**
  * Service for merchant-related operations.
@@ -48,5 +52,19 @@ public class MerchantService {
         Merchant saved = merchantRepository.save(merchant);
         log.info("Merchant created: merchantId={}, ownerId={}", saved.getId(), owner.getId());
         return saved;
+    }
+
+    public List<MerchantSummaryResponse> listActiveMerchants() {
+        return merchantRepository.findByStatus(MerchantStatus.ACTIVE)
+                .stream()
+                .map(m -> new MerchantSummaryResponse(m.getId(), m.getCompanyName(), m.getCreatedAt()))
+                .toList();
+    }
+
+    public MerchantSummaryResponse getMerchantDetail(UUID id) {
+        return merchantRepository.findById(id)
+                .filter(m -> m.getStatus() == MerchantStatus.ACTIVE)
+                .map(m -> new MerchantSummaryResponse(m.getId(), m.getCompanyName(), m.getCreatedAt()))
+                .orElseThrow(() -> new com.acaboumony.user.exception.MerchantNotFoundException(id));
     }
 }

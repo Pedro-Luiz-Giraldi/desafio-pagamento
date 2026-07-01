@@ -1,7 +1,7 @@
-# STATE — Frontend Merchant Dashboard
+# STATE — Role Separation: Merchant & Client
 
-**Última atualização:** 2025-01-24
-**Sessão ativa:** Bug Fix — Merchant Registration Flow
+**Última atualização:** 2026-07-01
+**Sessão ativa:** Planning Complete — Role Separation (Merchant/Client)
 
 ---
 
@@ -296,69 +296,73 @@
 
 ---
 
-## 🎉 MVP COMPLETO — Todas as Ondas Finalizadas
+## 💼 Nova Feature — Role Separation: Merchant & Client
 
-| Onda | Status | Descrição |
-|------|--------|-----------|
-| **Onda 1** | ✅ | Fundação (Vite, React 19, TypeScript, Tailwind, estrutura) |
-| **Onda 2** | ✅ | Auth (Login, Register, 2FA, Refresh, Rotas públicas) |
-| **Onda 3** | ✅ | App Shell (Layout autenticado, Protected Routes, Dashboard) |
-| **Onda 4** | ✅ | Features (Orders CRUD, Transactions, Settings, 2FA Setup) |
-| **Onda 5** | ✅ | Finalização (404, Responsivo, E2E Playwright) |
-
-**Total de arquivos criados:** ~80+ (componentes, páginas, APIs, hooks, types, testes)
-**Cobertura de testes:** Unit (Vitest) + E2E (Playwright)
-**Responsividade:** 360px+ a desktop
-**Stack:** React 19, TypeScript, Tailwind CSS 4, TanStack Query, Zustand, Axios, React Router v7, Vitest, Playwright
-
----
-
-## 🐛 Bug Fix — Merchant Registration (2025-01-24)
-
-### Issue Discovered
-Merchant account creation is broken. Users cannot register successfully:
-- Frontend sends `role: "MERCHANT"` (invalid enum value)
-- Frontend doesn't collect required fields: `companyName` and `cnpj`
-- Backend validation rejects the request
-- Frontend shows success mes cannot log in with "created" account
-
-### Root Cause Analysis
-**Frontend/Backend Contract Mismatch:**
-- Backend expects: `role: "MERCHANT_OWNER"` + `compsage despite API failure
-- UseranyName` + `cnpj`
-- Frontend sends: `role: "MERCHANT"` (no companyName, no cnpj)
-- Validation in `RegisterRequestValidator.java` requires both fields for `MERCHANT_OWNER` role
-- CNPJ must be valid Brazilian tax ID with checksum validation
-
-### Solution Plan
-**Feature:** `merchant-registration-fix`  
-**Spec:** `.specs/features/misterchant-registration-fix/spec.md`  
-**Tasks:** `.specs/features/merchant-registrationges Required:**
-1. Add CNPJ validation utierRequest` type to include `companyName` and `cnpj`
-3. Update `authApi.register()` to send correct role and fields
-4. Add "Nome da Empren-fix/tasks.md`
-
-**Chalities (format, checksum, mask)
-2. Update `Regsa" field to registration form
-5. Add "CNPJ" field with masking and validation
-6. Improve error handling for backend validation errors
-7. Integration testing with backend
-
-**Estimated Time:** ~2.5 hours
-
+**Feature:** `role-separation`
 **Status:** Planning complete ✅ — Ready for implementation
+**Branch:** `feat/role-separation`
 
-### Decisions Made
-- Use proper implementation (Option 2) with full CNPJ validation
-- Add CNPJ checksum validation using Brazilian algorithm
-- Apply CNPJ mask `XX.XXX.XXX/XXXX-XX` as user types
-- Send cleaned CNPJ (digits only) to backend
-- Map backend validation errors to field-specific errors
-- Maintain single-page registration form (no wizard)
+### O que foi planejado
+Separar o sistema em duas experiências distintas baseadas em role:
+- **Merchant** (MERCHANT_OWNER): páginas existentes preservadas, sem alterações
+- **Client** (CUSTOMER): nova experiência com dashboard, pedidos, pagamentos
 
-### Next Steps
-1. Execute tasks T-01 through T-07 sequentially
-2. Test with running backend (user-service on port 8080)
-3. Verify complete flow: register → confirm email → login
-4. Update STATE.md with execution results
+### Documentos criados
+- `.specs/features/role-separation/spec.md` — 28 requisitos (R1-R28)
+- `.specs/features/role-separation/tasks.md` — 23 tarefas em 5 fases com grafo de dependências
+
+### Decisões tomadas (gray areas)
+
+| Questão | Decisão |
+|---------|---------|
+| Cliente se auto-registra? | Sim |
+| Cliente pode ter pedidos com múltiplos merchants? | Sim |
+| Como seleciona merchant? | Lista de merchants ativos |
+| Catálogo de produtos? | Por merchant, inserido manualmente no DB |
+| Pagamento? | In-app com card form + MP tokenization |
+| MP Public Key? | `VITE_MP_PUBLIC_KEY` no .env do frontend |
+| Toggle no cadastro? | Sim, mesma página |
+| Merchant gerencia produtos? | Só visualizar (read-only) |
+| Dados existentes? | Limpar, fresh start |
+
+### Nenhuma funcionalidade existente do Merchant é alterada
+Apenas o botão "New Order" some do dashboard do Merchant (T10).
+
+### Estrutura de tasks
+
+**Fase 1 — Backend Foundation** (paralelo)
+- T1: CUSTOMER registration (user-service)
+- T2: Merchant listing API (user-service)
+- T3: Product entity + API (order-service)
+- T4: Gateway routes (api-gateway)
+- T5: Payment auth (payment-service)
+
+**Fase 2 — Frontend Core** (paralelo)
+- T6: Register toggle
+- T7: Login redirect por role
+- T8: Nav por role
+- T9: Route protection
+
+**Fase 3 — Merchant Frontend** (paralelo)
+- T10: Dashboard sem "New Order"
+- T11: Products page (read-only)
+- T12: Keep pages unchanged
+
+**Fase 4 — Client Frontend** (paralelo)
+- T13: Client dashboard
+- T14: Merchants list
+- T15: Order create multi-step
+- T16: My Orders + Pay button
+- T17: Payment page (card form + MP)
+- T18: My Transactions
+- T19: Order detail + Pay button
+
+**Fase 5 — Integração**
+- T20-T23: Flow verify, pay later, edge cases, seed data
+
+### Próximos passos
+1. Iniciar implementação pela **Fase 1** (todas as 5 tasks em paralelo)
+2. Rodar `mvn test` em cada serviço afetado
+3. Avançar pelas fases seguindo o grafo de dependências
+4. Usar `sdd-build` skill conforme padrão do projeto
 

@@ -16,7 +16,9 @@ export interface RegisterRequest {
   email: string
   password: string
   fullName: string
-  role: 'MERCHANT'
+  role?: 'CUSTOMER' | 'MERCHANT_OWNER'
+  companyName?: string
+  cnpj?: string
 }
 
 export interface RegisterResponse {

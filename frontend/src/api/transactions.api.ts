@@ -2,8 +2,24 @@ import client from './client'
 import type { Transaction, TransactionDetail, RefundRequest } from '@/types/transaction'
 import type { PaginatedResponse, ApiResponse } from '@/types/api'
 
+export interface CreateTransactionInput {
+  amountInCents: number
+  currency: string
+  customerId: string
+  orderId: string
+  cardToken: string
+  paymentMethodId: string
+  installments: number
+  idempotencyKey: string
+}
+
 export const transactionsApi = {
-  async list(params?: { page?: number; size?: number; status?: string }): Promise<PaginatedResponse<Transaction>> {
+  async create(input: CreateTransactionInput): Promise<ApiResponse<TransactionDetail>> {
+    const response = await client.post<ApiResponse<TransactionDetail>>('/api/v1/transactions', input)
+    return response.data
+  },
+
+  async list(params?: { page?: number; size?: number; status?: string; customerId?: string }): Promise<PaginatedResponse<Transaction>> {
     const response = await client.get<PaginatedResponse<Transaction>>('/api/v1/transactions', { params })
     return response.data
   },

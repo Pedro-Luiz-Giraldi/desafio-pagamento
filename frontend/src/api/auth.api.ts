@@ -1,20 +1,18 @@
 import client from './client'
 import type { LoginRequest, LoginResponse, RegisterResponse, TwoFactorVerifyRequest } from '@/types/auth'
 
-interface RegisterMerchantInput {
+interface RegisterInput {
   fullName: string
   email: string
   password: string
-  companyName: string
-  cnpj: string
+  role: 'CUSTOMER' | 'MERCHANT_OWNER'
+  companyName?: string
+  cnpj?: string
 }
 
 export const authApi = {
-  async register(input: RegisterMerchantInput): Promise<RegisterResponse> {
-    const response = await client.post<RegisterResponse>('/api/v1/auth/register', {
-      ...input,
-      role: 'MERCHANT_OWNER',
-    })
+  async register(input: RegisterInput): Promise<RegisterResponse> {
+    const response = await client.post<RegisterResponse>('/api/v1/auth/register', input)
     return response.data
   },
 
