@@ -88,7 +88,7 @@ export function LoginPage() {
             <Button className="w-full" type="submit" disabled={submitting}>
               {submitting ? <Spinner label="Entrando" /> : 'Entrar'}
             </Button>
-            <Link className="block text-center text-sm font-medium text-emerald-800 hover:text-emerald-900" to="/register">
+            <Link className="block text-center text-sm font-medium text-[#1A56DB] hover:text-[#0A2540]" to="/register">
               Criar conta merchant
             </Link>
           </form>

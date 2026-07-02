@@ -7,11 +7,11 @@ interface PublicLayoutProps {
 
 export function PublicLayout({ children }: PublicLayoutProps) {
   return (
-    <main className="min-h-screen bg-gray-50 px-4 py-8 text-gray-950">
-      <div className="mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-md flex-col justify-center">
-        <div className="mb-8">
-          <p className="text-sm font-medium text-emerald-800">{APP_NAME}</p>
-          <h1 className="mt-2 text-2xl font-semibold">Acesso merchant</h1>
+    <main className="min-h-screen bg-[#F8FAFC] flex items-center justify-center px-4 py-8">
+      <div className="w-full max-w-md">
+        <div className="mb-8 text-center">
+          <h1 className="text-2xl font-bold text-[#0A2540] tracking-tight">{APP_NAME}</h1>
+          <p className="mt-2 text-sm text-slate-600">Acesso à plataforma de pagamentos</p>
         </div>
         {children}
       </div>

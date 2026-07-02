@@ -24,16 +24,16 @@ export function Pagination({ page, totalPages, onPageChange }: PaginationProps) 
         onClick={() => onPageChange(page - 1)}
         disabled={page === 0}
         className={cn(
-          'inline-flex min-h-9 min-w-9 items-center justify-center rounded-md text-sm transition-colors',
-          'disabled:pointer-events-none disabled:opacity-50',
-          'hover:bg-gray-100 text-gray-700',
+          'inline-flex h-9 px-3 items-center justify-center rounded-lg text-sm font-medium transition-smooth',
+          'disabled:pointer-events-none disabled:opacity-40',
+          'hover:bg-slate-100 text-slate-700',
         )}
       >
         Anterior
       </button>
       {pages.map((p, idx) =>
         p === 'ellipsis' ? (
-          <span key={`e-${idx}`} className="min-h-9 min-w-9 flex items-center justify-center text-sm text-gray-400">
+          <span key={`e-${idx}`} className="h-9 w-9 flex items-center justify-center text-sm text-slate-400">
             ...
           </span>
         ) : (
@@ -41,8 +41,8 @@ export function Pagination({ page, totalPages, onPageChange }: PaginationProps) 
             key={p}
             onClick={() => onPageChange(p)}
             className={cn(
-              'inline-flex min-h-9 min-w-9 items-center justify-center rounded-md text-sm font-medium transition-colors',
-              p === page ? 'bg-emerald-700 text-white' : 'text-gray-700 hover:bg-gray-100',
+              'inline-flex h-9 w-9 items-center justify-center rounded-lg text-sm font-semibold transition-smooth',
+              p === page ? 'bg-[#0A2540] text-white' : 'text-slate-700 hover:bg-slate-100',
             )}
           >
             {p + 1}
@@ -53,9 +53,9 @@ export function Pagination({ page, totalPages, onPageChange }: PaginationProps) 
         onClick={() => onPageChange(page + 1)}
         disabled={page >= totalPages - 1}
         className={cn(
-          'inline-flex min-h-9 min-w-9 items-center justify-center rounded-md text-sm transition-colors',
-          'disabled:pointer-events-none disabled:opacity-50',
-          'hover:bg-gray-100 text-gray-700',
+          'inline-flex h-9 px-3 items-center justify-center rounded-lg text-sm font-medium transition-smooth',
+          'disabled:pointer-events-none disabled:opacity-40',
+          'hover:bg-slate-100 text-slate-700',
         )}
       >
         Próximo

@@ -35,8 +35,11 @@ export function SettingsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-gray-900">Configurações</h2>
+    <div className="space-y-5">
+      <div>
+        <h1 className="text-2xl font-bold text-[#0A2540]">Configurações</h1>
+        <p className="text-sm text-slate-600 mt-1">Gerencie seu perfil e preferências</p>
+      </div>
 
       <Card>
         <CardHeader>
@@ -46,9 +49,9 @@ export function SettingsPage() {
           <form aria-label="Formulario de perfil" className="space-y-4" onSubmit={handleSubmit}>
             <Input label="Email" type="email" value={user?.email ?? ''} disabled />
             <Input label="Nome Completo" value={fullName} onChange={(e) => setFullName(e.target.value)} />
-            <div className="flex justify-end gap-3">
+            <div className="flex justify-end gap-3 pt-2">
               <Button type="submit" disabled={saving}>
-                {saving ? <Spinner label="Salvando" /> : 'Salvar'}
+                {saving ? <Spinner label="Salvando" /> : 'Salvar Alterações'}
               </Button>
             </div>
           </form>
@@ -57,17 +60,17 @@ export function SettingsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Autenticação</CardTitle>
+          <CardTitle>Segurança</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center justify-between">
+        <CardContent>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
-              <p className="text-sm font-medium text-gray-900">Autenticação de Dois Fatores (2FA)</p>
-              <p className="text-sm text-gray-500">
+              <p className="text-sm font-semibold text-slate-900">Autenticação de Dois Fatores (2FA)</p>
+              <p className="text-sm text-slate-600 mt-1">
                 {user?.twoFactorEnabled ? '2FA está ativo' : 'Adicione uma camada extra de segurança'}
               </p>
             </div>
-            <Button variant={user?.twoFactorEnabled ? 'secondary' : 'primary'} onClick={() => navigate('/settings/2fa')}>
+            <Button variant={user?.twoFactorEnabled ? 'secondary' : 'primary'} onClick={() => navigate('/settings/2fa')} className="sm:w-auto w-full">
               {user?.twoFactorEnabled ? 'Gerenciar' : 'Configurar'}
             </Button>
           </div>

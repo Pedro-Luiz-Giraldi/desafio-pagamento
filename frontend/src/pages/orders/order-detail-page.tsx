@@ -38,9 +38,9 @@ export function OrderDetailPage() {
 
   if (isError || !data) {
     return (
-      <div className="space-y-6">
-        <h2 className="text-2xl font-bold text-gray-900">Detalhe do Pedido</h2>
-        <p className="text-sm text-red-600">Erro ao carregar pedido</p>
+      <div className="space-y-5">
+        <h1 className="text-2xl font-bold text-[#0A2540]">Detalhe do Pedido</h1>
+        <p className="text-sm text-[#EF4444]">Erro ao carregar pedido</p>
         <Button variant="secondary" onClick={() => navigate('/orders')}>Voltar</Button>
       </div>
     )
@@ -50,13 +50,13 @@ export function OrderDetailPage() {
   const canCancel = order.status === 'PENDING'
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-5">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Pedido #{order.orderId.slice(0, 8)}</h2>
-          <p className="text-sm text-gray-500 mt-1">Criado em {formatDate(order.createdAt)}</p>
+          <h1 className="text-2xl font-bold text-[#0A2540]">Pedido #{order.orderId.slice(0, 8)}</h1>
+          <p className="text-sm text-slate-600 mt-1">Criado em {formatDate(order.createdAt)}</p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-2">
           <Button variant="secondary" onClick={() => navigate('/orders')}>Voltar</Button>
           {canCancel && (
             <Button variant="danger" onClick={() => setShowConfirm(true)} disabled={cancelOrder.isPending}>
@@ -71,26 +71,26 @@ export function OrderDetailPage() {
         </div>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2">
+      <div className="grid gap-4 md:grid-cols-2">
         <Card>
           <CardHeader><CardTitle>Informações</CardTitle></CardHeader>
-          <CardContent className="space-y-3">
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-600">Status</span>
+          <CardContent className="space-y-4">
+            <div className="flex justify-between items-center text-sm">
+              <span className="text-slate-600 font-medium">Status</span>
               <StatusBadge status={order.status} />
             </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-600">Total</span>
-              <span className="font-semibold">{formatCents(order.totalInCents)}</span>
+            <div className="flex justify-between items-center text-sm">
+              <span className="text-slate-600 font-medium">Total</span>
+              <span className="font-bold text-[#0A2540] text-base tabular-nums">{formatCents(order.totalInCents)}</span>
             </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-600">Cliente</span>
-              <span className="text-gray-900">{order.customerId}</span>
+            <div className="flex justify-between items-center text-sm">
+              <span className="text-slate-600 font-medium">Cliente</span>
+              <span className="text-slate-900 font-mono text-xs">{order.customerId.slice(0, 8)}...</span>
             </div>
             {order.transactionId && (
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-600">Transação</span>
-                <button onClick={() => navigate(`/transactions/${order.transactionId}`)} className="font-mono text-xs text-emerald-700 hover:underline">
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-slate-600 font-medium">Transação</span>
+                <button onClick={() => navigate(`/transactions/${order.transactionId}`)} className="font-mono text-xs text-[#1A56DB] hover:underline">
                   {order.transactionId.slice(0, 8)}...
                 </button>
               </div>
@@ -99,28 +99,30 @@ export function OrderDetailPage() {
         </Card>
 
         <Card>
-          <CardHeader><CardTitle>Itens</CardTitle></CardHeader>
+          <CardHeader><CardTitle>Itens do Pedido</CardTitle></CardHeader>
           <CardContent>
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-gray-200 text-left text-gray-600">
-                  <th className="pb-2 font-medium">Descrição</th>
-                  <th className="pb-2 font-medium">Qtd</th>
-                  <th className="pb-2 font-medium">Preço</th>
-                  <th className="pb-2 font-medium text-right">Subtotal</th>
-                </tr>
-              </thead>
-              <tbody>
-                {order.items.map((item, idx) => (
-                  <tr key={idx} className="border-b border-gray-100 last:border-0">
-                    <td className="py-2 text-gray-900">{item.description}</td>
-                    <td className="py-2 text-gray-600">{item.quantity}</td>
-                    <td className="py-2 text-gray-600">{formatCents(item.unitPriceInCents)}</td>
-                    <td className="py-2 text-right font-medium">{formatCents(item.subtotalInCents)}</td>
+            <div className="overflow-x-auto -mx-6">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-slate-200 text-left">
+                    <th className="pb-2 px-6 font-semibold text-xs uppercase tracking-wide text-slate-500">Descrição</th>
+                    <th className="pb-2 px-3 font-semibold text-xs uppercase tracking-wide text-slate-500">Qtd</th>
+                    <th className="pb-2 px-3 font-semibold text-xs uppercase tracking-wide text-slate-500">Preço</th>
+                    <th className="pb-2 px-6 font-semibold text-xs uppercase tracking-wide text-slate-500 text-right">Subtotal</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {order.items.map((item, idx) => (
+                    <tr key={idx} className="border-b border-slate-100 last:border-0">
+                      <td className="py-3 px-6 text-slate-900">{item.description}</td>
+                      <td className="py-3 px-3 text-slate-600 tabular-nums">{item.quantity}</td>
+                      <td className="py-3 px-3 text-slate-600 tabular-nums">{formatCents(item.unitPriceInCents)}</td>
+                      <td className="py-3 px-6 text-right font-semibold text-[#0A2540] tabular-nums">{formatCents(item.subtotalInCents)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </CardContent>
         </Card>
       </div>

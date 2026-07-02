@@ -7,3 +7,38 @@
   margin: 0;
   padding: 0;
 }
+
+/* Financial UI Design System */
+:root {
+  --navy-deep: #0A2540;
+  --trust-blue: #1A56DB;
+  --slate-whisper: #F8FAFC;
+  --success-green: #10B981;
+  --alert-red: #EF4444;
+  --slate-mid: #64748B;
+}
+
+/* Tabular numbers for financial data */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+/* Status pulse animation - signature element */
+@keyframes status-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+
+.status-pulse {
+  animation: status-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Smooth transitions for interactive elements */
+.transition-smooth {
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}

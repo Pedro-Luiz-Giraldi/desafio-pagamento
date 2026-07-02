@@ -18,8 +18,8 @@ export function Select({ className, error, id, label, options, ...props }: Selec
   const descriptionId = error ? `${selectId}-error` : undefined
 
   return (
-    <div className="space-y-1.5">
-      <label htmlFor={selectId} className="block text-sm font-medium text-gray-800">
+    <div className="space-y-2">
+      <label htmlFor={selectId} className="block text-sm font-medium text-slate-700">
         {label}
       </label>
       <select
@@ -27,9 +27,9 @@ export function Select({ className, error, id, label, options, ...props }: Selec
         aria-describedby={descriptionId}
         aria-invalid={error ? 'true' : undefined}
         className={cn(
-          'block min-h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-950',
-          'focus:border-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-700/20',
-          error && 'border-red-600 focus:border-red-600 focus:ring-red-600/20',
+          'block min-h-11 w-full rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900',
+          'transition-smooth focus:border-[#1A56DB] focus:outline-none focus:ring-2 focus:ring-[#1A56DB]/20',
+          error && 'border-[#EF4444] focus:border-[#EF4444] focus:ring-[#EF4444]/20',
           className,
         )}
         {...props}
@@ -41,7 +41,7 @@ export function Select({ className, error, id, label, options, ...props }: Selec
         ))}
       </select>
       {error && (
-        <p id={descriptionId} className="text-sm text-red-700">
+        <p id={descriptionId} className="text-xs text-[#EF4444]">
           {error}
         </p>
       )}

@@ -5,9 +5,9 @@ import { subscribe, getSnapshot } from '@/lib/toast-store'
 type ToastType = 'success' | 'error' | 'info'
 
 const variants: Record<ToastType, string> = {
-  success: 'border-emerald-200 bg-emerald-50 text-emerald-950',
-  error: 'border-red-200 bg-red-50 text-red-950',
-  info: 'border-sky-200 bg-sky-50 text-sky-950',
+  success: 'border-emerald-200 bg-emerald-50 text-emerald-900',
+  error: 'border-red-200 bg-red-50 text-red-900',
+  info: 'border-blue-200 bg-blue-50 text-blue-900',
 }
 
 export function Toaster() {
@@ -19,7 +19,7 @@ export function Toaster() {
         <div
           key={item.id}
           role={item.type === 'error' ? 'alert' : 'status'}
-          className={cn('rounded-md border px-4 py-3 text-sm shadow-sm', variants[item.type])}
+          className={cn('rounded-lg border px-4 py-3 text-sm font-medium shadow-lg', variants[item.type])}
         >
           {item.message}
         </div>

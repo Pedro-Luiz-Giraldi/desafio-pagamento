@@ -13,8 +13,8 @@ export function Input({ className, error, helperText, id, label, ...props }: Inp
   const descriptionId = error || helperText ? `${inputId}-description` : undefined
 
   return (
-    <div className="space-y-1.5">
-      <label htmlFor={inputId} className="block text-sm font-medium text-gray-800">
+    <div className="space-y-2">
+      <label htmlFor={inputId} className="block text-sm font-medium text-slate-700">
         {label}
       </label>
       <input
@@ -22,15 +22,16 @@ export function Input({ className, error, helperText, id, label, ...props }: Inp
         aria-describedby={descriptionId}
         aria-invalid={error ? 'true' : undefined}
         className={cn(
-          'block min-h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-950',
-          'placeholder:text-gray-400 focus:border-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-700/20',
-          error && 'border-red-600 focus:border-red-600 focus:ring-red-600/20',
+          'block min-h-11 w-full rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900',
+          'placeholder:text-slate-400 transition-smooth',
+          'focus:border-[#1A56DB] focus:outline-none focus:ring-2 focus:ring-[#1A56DB]/20',
+          error && 'border-[#EF4444] focus:border-[#EF4444] focus:ring-[#EF4444]/20',
           className,
         )}
         {...props}
       />
       {(error || helperText) && (
-        <p id={descriptionId} className={cn('text-sm', error ? 'text-red-700' : 'text-gray-600')}>
+        <p id={descriptionId} className={cn('text-xs', error ? 'text-[#EF4444]' : 'text-slate-500')}>
           {error ?? helperText}
         </p>
       )}
