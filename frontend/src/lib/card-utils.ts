@@ -10,8 +10,8 @@ export function detectCardBrand(cardNumber: string): string {
     return 'visa'
   }
   
-  // Mastercard: starts with 51-55 or 2221-2720
-  if (/^5[1-5]/.test(cleaned) || /^2(22[1-9]|2[3-9]|[3-6]|7[0-1]|720)/.test(cleaned)) {
+  // Mastercard: starts with 50-55 or 2221-2720
+  if (/^5[0-5]/.test(cleaned) || /^2(22[1-9]|2[3-9]|[3-6]|7[0-1]|720)/.test(cleaned)) {
     return 'master'
   }
   

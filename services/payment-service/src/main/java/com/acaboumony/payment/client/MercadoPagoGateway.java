@@ -59,6 +59,11 @@ public class MercadoPagoGateway {
                                            String paymentMethodId, Integer installments,
                                            UUID orderId, String customerEmail) {
         var start = Instant.now();
+        
+        // Log request details for debugging
+        log.info("Creating MP payment: amount={}, paymentMethod={}, installments={}, orderId={}, email={}, tokenLength={}", 
+            amountInCents, paymentMethodId, installments, orderId, customerEmail, cardToken.length());
+        
         var future = CompletableFuture.supplyAsync(() -> {
             try {
                 var requestBuilder = PaymentCreateRequest.builder()
@@ -70,23 +75,25 @@ public class MercadoPagoGateway {
                     .payer(PaymentPayerRequest.builder()
                         .email(customerEmail).build());
 
-                if (!notificationUrl.isBlank()) {
-                    requestBuilder.notificationUrl(notificationUrl);
-                }
+                // Temporarily removed: notification URL points to stale ngrok tunnel
 
                 var request = requestBuilder.build();
 
+                log.info("Sending payment request to Mercado Pago...");
                 return paymentClient.create(request);
             } catch (MPApiException e) {
+                log.error("MPApiException during payment creation: status={}, message={}", 
+                    e.getStatusCode(), e.getMessage());
                 throw new CompletionException(e);
             } catch (MPException e) {
+                log.error("MPException during payment creation: {}", e.getMessage());
                 throw new CompletionException(e);
             }
         }, executor);
 
         try {
             Payment payment = future.get(timeoutMs, TimeUnit.MILLISECONDS);
-            log.debug("MP payment created in {}ms: id={}, status={}",
+            log.info("MP payment created in {}ms: id={}, status={}",
                 Duration.between(start, Instant.now()).toMillis(),
                 payment.getId(), payment.getStatus());
 
@@ -108,17 +115,42 @@ public class MercadoPagoGateway {
                 var status = mpApi.getStatusCode();
                 var apiResponse = mpApi.getApiResponse();
                 var responseBody = apiResponse != null ? apiResponse.getContent() : "null";
-                log.warn("MP API error: status={} body={}", status, responseBody);
+                
+                // Enhanced logging for debugging
+                log.error("MP API error: status={} body={} message={}", 
+                    status, responseBody, mpApi.getMessage());
+                
+                // Log additional details if available
+                if (apiResponse != null) {
+                    log.error("MP API response headers: {}", apiResponse.getHeaders());
+                }
+                
                 if (status == 400 || status == 422) {
+                    // Parse error details from response body if possible
+                    String errorDetail = parseErrorDetail(responseBody);
+                    log.warn("Payment declined by MP: {}", errorDetail);
                     return PaymentResult.declined("CARD_DECLINED");
                 }
                 if (status >= 500) {
+                    log.error("MP server error - this may indicate: invalid access token, malformed request, or MP service issue");
                     return PaymentResult.declined("MP_SERVER_ERROR");
                 }
                 return PaymentResult.declined("MP_API_ERROR");
             }
+            log.error("Unexpected MP gateway error: {}", cause != null ? cause.getMessage() : "unknown", cause);
             throw new CompletionException("MP gateway error", e.getCause());
         }
+    }
+    
+    private String parseErrorDetail(String responseBody) {
+        try {
+            if (responseBody != null && responseBody.contains("message")) {
+                return responseBody;
+            }
+        } catch (Exception e) {
+            log.debug("Could not parse error detail: {}", e.getMessage());
+        }
+        return "CARD_DECLINED";
     }
 
     public RefundResult refundPayment(Long mpPaymentId, Long amountInCents) {

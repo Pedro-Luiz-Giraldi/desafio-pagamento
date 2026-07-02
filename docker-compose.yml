@@ -296,7 +296,7 @@ services:
       MERCADOPAGO_WEBHOOK_SECRET: ${MERCADOPAGO_WEBHOOK_SECRET}
       MERCADOPAGO_NOTIFICATION_URL: https://squabble-engulf-ocean.ngrok-free.dev/api/v1/webhooks/mercadopago
       MERCADOPAGO_TIMEOUT_MS: ${MERCADOPAGO_TIMEOUT_MS:-10000}
-      MERCADOPAGO_PAYER_EMAIL: guilherme.dias4501@gmail.com
+      MERCADOPAGO_PAYER_EMAIL: test_user_123@testuser.com
       FRAUD_SERVICE_URL: http://fraud-service:8085
       ORDER_SERVICE_URL: http://order-service:8083
       USER_SERVICE_URL: http://user-service:8081

@@ -17,7 +17,24 @@ public class MercadoPagoSdkConfig {
 
     @PostConstruct
     public void init() {
+        if (accessToken == null || accessToken.isBlank()) {
+            log.error("MERCADOPAGO_ACCESS_TOKEN is not set! Payment processing will fail.");
+            throw new IllegalStateException("MERCADOPAGO_ACCESS_TOKEN environment variable is required");
+        }
+        
+        // Validate token format
+        if (!accessToken.startsWith("TEST-") && !accessToken.startsWith("APP_USR-")) {
+            log.warn("Access token does not start with TEST- or APP_USR-. Format: {}", 
+                accessToken.substring(0, Math.min(10, accessToken.length())) + "...");
+        }
+        
         MercadoPagoConfig.setAccessToken(accessToken);
-        log.info("MercadoPago SDK configured with access token");
+        
+        // Log masked token for verification
+        String maskedToken = accessToken.length() > 20 
+            ? accessToken.substring(0, 10) + "..." + accessToken.substring(accessToken.length() - 4)
+            : accessToken.substring(0, Math.min(10, accessToken.length())) + "...";
+        
+        log.info("MercadoPago SDK configured with access token: {}", maskedToken);
     }
 }

@@ -184,7 +184,8 @@ public class TransactionService {
             publishFailed(transactionId, request, customerEmail, errorCode, start);
             logAudit(transactionId, effectiveMerchantId, "PAYMENT_FAILED", String.format("{\"detail\":\"%s\"}", errorCode), ipAddress);
             safeRedisDelete(idempotencyKey);
-            return fail(errorCode, "Payment gateway error", !"CARD_DECLINED".equals(errorCode), start);
+            var retryable = !isCardDeclinedError(errorCode);
+            return fail(errorCode, "Payment gateway error", retryable, start);
         }
 
         var transaction = new Transaction(
@@ -383,6 +384,12 @@ public class TransactionService {
         } catch (Exception e) {
             log.warn("Failed to write audit log: {}", e.getMessage());
         }
+    }
+
+    private boolean isCardDeclinedError(String errorCode) {
+        return "CARD_DECLINED".equals(errorCode)
+            || "INSUFFICIENT_FUNDS".equals(errorCode)
+            || (errorCode != null && errorCode.startsWith("cc_rejected_"));
     }
 
     private void safeRedisDelete(String key) {

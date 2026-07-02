@@ -218,7 +218,7 @@ public class TransactionController {
             case "DUPLICATE_IDEMPOTENCY_KEY" -> HttpStatus.CONFLICT;
             case "ORDER_NOT_FOUND", "CUSTOMER_NOT_FOUND" -> HttpStatus.NOT_FOUND;
             case "ORDER_NOT_PENDING" -> HttpStatus.UNPROCESSABLE_ENTITY;
-            case "CARD_DECLINED", "INSUFFICIENT_FUNDS", "SUSPECTED_FRAUD" -> HttpStatus.UNPROCESSABLE_ENTITY;
+            case "CARD_DECLINED", "INSUFFICIENT_FUNDS", "SUSPECTED_FRAUD", "cc_rejected_other_reason" -> HttpStatus.UNPROCESSABLE_ENTITY;
             case "RATE_LIMIT_EXCEEDED" -> HttpStatus.TOO_MANY_REQUESTS;
             case "MP_GATEWAY_TIMEOUT", "ORDER_SERVICE_UNAVAILABLE" -> HttpStatus.SERVICE_UNAVAILABLE;
             default -> HttpStatus.INTERNAL_SERVER_ERROR;
