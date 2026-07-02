@@ -40,7 +40,7 @@ public class TransactionController {
             @RequestHeader("X-User-Id") UUID userId,
             @RequestHeader("X-User-Role") String userRole,
             @RequestHeader("X-User-Email") String customerEmail,
-            @RequestHeader("X-Merchant-Id") UUID merchantId,
+            @RequestHeader(value = "X-Merchant-Id", required = false) UUID merchantId,
             @RequestHeader("X-Forwarded-For") String ipAddress,
             @RequestHeader(value = "X-Request-Id", required = false) String requestId) {
 

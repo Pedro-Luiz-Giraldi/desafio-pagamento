@@ -65,6 +65,29 @@ class TransactionControllerTest {
     }
 
     @Test
+    void processTransaction_withoutMerchantIdHeader_returns201() throws Exception {
+        var customerId = UUID.randomUUID();
+        var request = new TransactionRequest(
+            8990L, "BRL", customerId, UUID.randomUUID(),
+            "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6", "visa", 1, UUID.randomUUID()
+        );
+
+        when(transactionService.processTransaction(any(), anyString(), isNull(), anyString()))
+            .thenReturn(new TransactionResult.Approved("txn_001", 123L, request.orderId(), 500L, false));
+
+        mockMvc.perform(post("/api/v1/transactions")
+                .contentType(MediaType.APPLICATION_JSON)
+                .header("X-User-Id", customerId.toString())
+                .header("X-User-Role", "CUSTOMER")
+                .header("X-User-Email", "customer@test.com")
+                .header("X-Forwarded-For", "127.0.0.1")
+                .content(objectMapper.writeValueAsString(request)))
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.data.transactionId").value("txn_001"))
+            .andExpect(jsonPath("$.data.status").value("APPROVED"));
+    }
+
+    @Test
     void processTransaction_whenInvalidAmount_returns400() throws Exception {
         var request = new TransactionRequest(
             0L, "BRL", UUID.randomUUID(), UUID.randomUUID(),

@@ -130,13 +130,22 @@ public class TransactionService {
         }
 
         var transactionId = generateTransactionId();
-        logAudit(transactionId, merchantId, "CREATED", "{}", ipAddress);
 
+        // Fetch order to get merchantId if not provided (CUSTOMER role case)
         var orderValidation = orderClient.validateOrder(request.orderId(), merchantId);
         if (!orderValidation.valid()) {
             safeRedisDelete(idempotencyKey);
             return fail(orderValidation.errorCode(), "Order validation failed", false, start);
         }
+
+        // Use merchantId from order if not provided in header
+        UUID effectiveMerchantId = merchantId != null ? merchantId : orderValidation.merchantId();
+        if (effectiveMerchantId == null) {
+            safeRedisDelete(idempotencyKey);
+            return fail("MERCHANT_ID_MISSING", "Merchant ID could not be determined", false, start);
+        }
+
+        logAudit(transactionId, effectiveMerchantId, "CREATED", "{}", ipAddress);
 
         var customerValidation = userClient.validateCustomer(request.customerId());
         if (!customerValidation.valid()) {
@@ -145,14 +154,14 @@ public class TransactionService {
         }
 
         var fraudRequest = new FraudServiceClient.FraudAnalysisRequest(
-            transactionId, request.customerId(), merchantId, request.amountInCents(),
+            transactionId, request.customerId(), effectiveMerchantId, request.amountInCents(),
             request.paymentMethodId(), ipAddress, null, null, null
         );
         var fraudResult = fraudClient.score(fraudRequest);
-        logAudit(transactionId, merchantId, "FRAUD_CHECK", "{\"risk\":\"" + fraudResult.decision() + "\"}", ipAddress);
+        logAudit(transactionId, effectiveMerchantId, "FRAUD_CHECK", "{\"risk\":\"" + fraudResult.decision() + "\"}", ipAddress);
 
         if ("BLOCK".equals(fraudResult.decision())) {
-            saveFailedTransaction(transactionId, request, merchantId, "SUSPECTED_FRAUD", start);
+            saveFailedTransaction(transactionId, request, effectiveMerchantId, "SUSPECTED_FRAUD", start);
             publishFailed(transactionId, request, customerEmail, "SUSPECTED_FRAUD", start);
             safeRedisDelete(idempotencyKey);
             return fail("SUSPECTED_FRAUD", "Transaction blocked by fraud analysis", false, start);
@@ -167,19 +176,19 @@ public class TransactionService {
         if (!gatewayResult.success()) {
             if (gatewayResult.isTimeout()) {
                 safeRedisDelete(idempotencyKey);
-                logAudit(transactionId, merchantId, "GATEWAY_TIMEOUT", "{}", ipAddress);
+                logAudit(transactionId, effectiveMerchantId, "GATEWAY_TIMEOUT", "{}", ipAddress);
                 return fail("MP_GATEWAY_TIMEOUT", "Payment gateway timeout", true, start);
             }
             var errorCode = gatewayResult.errorCode() != null ? gatewayResult.errorCode() : "CARD_DECLINED";
-            saveFailedTransaction(transactionId, request, merchantId, errorCode, start);
+            saveFailedTransaction(transactionId, request, effectiveMerchantId, errorCode, start);
             publishFailed(transactionId, request, customerEmail, errorCode, start);
-            logAudit(transactionId, merchantId, "PAYMENT_FAILED", String.format("{\"detail\":\"%s\"}", errorCode), ipAddress);
+            logAudit(transactionId, effectiveMerchantId, "PAYMENT_FAILED", String.format("{\"detail\":\"%s\"}", errorCode), ipAddress);
             safeRedisDelete(idempotencyKey);
             return fail(errorCode, "Payment gateway error", !"CARD_DECLINED".equals(errorCode), start);
         }
 
         var transaction = new Transaction(
-            transactionId, request.orderId(), request.customerId(), merchantId,
+            transactionId, request.orderId(), request.customerId(), effectiveMerchantId,
             request.amountInCents(), "BRL", request.paymentMethodId(),
             TransactionStatus.APPROVED, request.idempotencyKey()
         );
@@ -198,7 +207,7 @@ public class TransactionService {
 
         var completedEvent = new TransactionCompletedEvent(
             transactionId, gatewayResult.mpPaymentId(), request.orderId(),
-            request.customerId(), merchantId, customerEmail, null,
+            request.customerId(), effectiveMerchantId, customerEmail, null,
             request.amountInCents(), "BRL", null, null,
             request.installments(), null, Instant.now(), "APPROVED"
         );
@@ -207,7 +216,7 @@ public class TransactionService {
         approvedCounter.increment();
         processingTimer.record(Duration.between(start, Instant.now()));
         log.info("Transaction {} approved in {}ms", transactionId, transaction.getProcessingTimeMs());
-        logAudit(transactionId, merchantId, "PAYMENT_APPROVED", "{}", ipAddress);
+        logAudit(transactionId, effectiveMerchantId, "PAYMENT_APPROVED", "{}", ipAddress);
         return new TransactionResult.Approved(
             transactionId, gatewayResult.mpPaymentId(),
             request.orderId(), transaction.getProcessingTimeMs(), false);

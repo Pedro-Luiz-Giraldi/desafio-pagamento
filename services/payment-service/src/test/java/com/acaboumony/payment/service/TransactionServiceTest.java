@@ -60,7 +60,7 @@ class TransactionServiceTest {
             "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6", "visa", 1, UUID.randomUUID()
         );
         lenient().when(orderClient.validateOrder(any(), any())).thenReturn(
-            new OrderServiceClient.OrderValidationResult(true, null));
+            new OrderServiceClient.OrderValidationResult(true, null, UUID.randomUUID()));
         lenient().when(userClient.validateCustomer(any())).thenReturn(
             new UserServiceClient.UserValidationResult(true, null));
     }
@@ -620,7 +620,7 @@ class TransactionServiceTest {
         when(valueOps.setIfAbsent(anyString(), anyString(), any(Duration.class)))
             .thenReturn(true);
         when(orderClient.validateOrder(any(), any()))
-            .thenReturn(new OrderServiceClient.OrderValidationResult(false, "ORDER_NOT_FOUND"));
+            .thenReturn(new OrderServiceClient.OrderValidationResult(false, "ORDER_NOT_FOUND", null));
 
         TransactionResult result = service.processTransaction(validRequest, "test@test.com", UUID.randomUUID(), "127.0.0.1");
 
@@ -634,7 +634,7 @@ class TransactionServiceTest {
         when(valueOps.setIfAbsent(anyString(), anyString(), any(Duration.class)))
             .thenReturn(true);
         when(orderClient.validateOrder(any(), any()))
-            .thenReturn(new OrderServiceClient.OrderValidationResult(true, null));
+            .thenReturn(new OrderServiceClient.OrderValidationResult(true, null, UUID.randomUUID()));
         when(userClient.validateCustomer(any()))
             .thenReturn(new UserServiceClient.UserValidationResult(false, "CUSTOMER_NOT_FOUND"));
 

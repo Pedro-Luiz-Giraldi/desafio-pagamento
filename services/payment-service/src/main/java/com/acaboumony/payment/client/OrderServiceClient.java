@@ -55,24 +55,24 @@ public class OrderServiceClient {
 
                 var orderData = response.getBody();
                 if (orderData == null) {
-                    return new OrderValidationResult(false, "ORDER_NOT_FOUND");
+                    return new OrderValidationResult(false, "ORDER_NOT_FOUND", null);
                 }
 
                 if (!"PENDING".equals(orderData.status())) {
-                    return new OrderValidationResult(false, "ORDER_NOT_PENDING");
+                    return new OrderValidationResult(false, "ORDER_NOT_PENDING", null);
                 }
 
-                return new OrderValidationResult(true, null);
+                return new OrderValidationResult(true, null, orderData.merchantId());
             });
         } catch (org.springframework.web.client.HttpClientErrorException.NotFound e) {
-            return new OrderValidationResult(false, "ORDER_NOT_FOUND");
+            return new OrderValidationResult(false, "ORDER_NOT_FOUND", null);
         } catch (Exception e) {
             log.warn("Order service unavailable or error: {}", e.getMessage());
-            return new OrderValidationResult(false, "ORDER_SERVICE_UNAVAILABLE");
+            return new OrderValidationResult(false, "ORDER_SERVICE_UNAVAILABLE", null);
         }
     }
 
-    public record OrderValidationResult(boolean valid, String errorCode) {}
+    public record OrderValidationResult(boolean valid, String errorCode, UUID merchantId) {}
 
     private record OrderData(
         UUID orderId,

@@ -24,17 +24,20 @@ class OrderServiceClientTest {
 
     @Test
     void validateOrder_recordConstructor_works() {
-        var result = new OrderServiceClient.OrderValidationResult(true, null);
+        var merchantId = UUID.randomUUID();
+        var result = new OrderServiceClient.OrderValidationResult(true, null, merchantId);
 
         assertTrue(result.valid());
         assertNull(result.errorCode());
+        assertEquals(merchantId, result.merchantId());
     }
 
     @Test
     void validateOrder_recordWithErrorCode() {
-        var result = new OrderServiceClient.OrderValidationResult(false, "ORDER_NOT_FOUND");
+        var result = new OrderServiceClient.OrderValidationResult(false, "ORDER_NOT_FOUND", null);
 
         assertFalse(result.valid());
         assertEquals("ORDER_NOT_FOUND", result.errorCode());
+        assertNull(result.merchantId());
     }
 }
