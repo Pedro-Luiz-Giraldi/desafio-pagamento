@@ -74,3 +74,24 @@ springdoc:
     path: /api-docs
   swagger-ui:
     path: /swagger-ui.html
+
+# -----
+
+logging:
+  level:
+    root: DEBUG
+
+chaos:
+  monkey:
+    enabled: true
+    watcher:
+      controller: false
+      restController: false
+      service: true
+      repository: false
+      component: false
+    assaults:
+      level: 1
+      exceptionsActive: true 
+      latencyActive: false 
+      killApplicationActive: false
