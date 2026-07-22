@@ -1,49 +1,30 @@
-# Bug Diagnosis: Payment failures with Mercado Pago
+# Bug Diagnosis: Chaos Monkey Not Working
 
 ## Bug Summary
-Two distinct issues cause payment failures when testing with Mercado Pago:
+Chaos Monkey is configured for user-service but does not throw exceptions when requests are made.
 
-1. Mastercard test card 5031 4332 1540 6351 returns CARD_DECLINED (422)
-2. Visa test card 4235 6477 2802 5682 returns cc_rejected_other_reason (500)
+## Root Cause
+**Version incompatibility between `chaos-monkey-spring-boot` and Spring Boot.**
 
-## Root Causes
-
-### Issue 1: Incorrect Mastercard brand detection (frontend)
-**File:** `frontend/src/lib/card-utils.ts:14`
-
-The `detectCardBrand()` function has an incomplete Mastercard BIN range:
-```typescript
-if (/^5[1-5]/.test(cleaned) ...  // only 51-55
-```
-
-Mastercard BINs include the **50-55** range. The test card 5031 4332 1540 6351 starts with **5031** (Mastercard), but the regex only matches 51-55, so it falls through to the default `'visa'`.
-
-**Result:** Frontend sends `paymentMethodId: "visa"` for a Mastercard card → MP rejects with CARD_DECLINED.
-
-### Issue 2: Missing error code mapping (backend)
-**File:** `services/payment-service/src/main/java/com/acaboumony/payment/controller/TransactionController.java:221`
-
-The `errorHttpStatus()` switch statement does not include Mercado Pago's rejection codes like `cc_rejected_other_reason`, `cc_rejected_insufficient_amount`, etc. These fall to the `default` case which returns `HttpStatus.INTERNAL_SERVER_ERROR` (500).
-
-**Result:** A perfectly normal card decline returns 500 instead of 422 UNPROCESSABLE_ENTITY, which could trigger incorrect retry logic.
-
-### Issue 3: Overly narrow retryable logic (backend)
-**File:** `services/payment-service/src/main/java/com/acaboumony/payment/service/TransactionService.java:187`
-
-The `retryable` flag is set to `!"CARD_DECLINED".equals(errorCode)`, meaning only the exact string "CARD_DECLINED" is non-retryable. All other MP decline codes (like `cc_rejected_other_reason`) are incorrectly marked as retryable.
-
-## Proposed Fixes
-1. Update Mastercard regex from `^5[1-5]` to `^5[0-5]` in `card-utils.ts`
-2. Add `cc_rejected_other_reason` (and generic MP rejection pattern) to the 422 mapping in `TransactionController.java`
-3. Improve retryable logic to treat all card-decline-type errors as non-retryable
-
-## Affected Files
-- `frontend/src/lib/card-utils.ts`
-- `services/payment-service/src/main/java/com/acaboumony/payment/controller/TransactionController.java`
-- `services/payment-service/src/main/java/com/acaboumony/payment/service/TransactionService.java`
+The `pom.xml` declares dependency `de.codecentric:chaos-monkey-spring-boot:2.0.0`, but the project uses Spring Boot 3.4.5. Version 2.0.0 was built for Spring Boot 2.x and is not compatible with Spring Boot 3.x. The auto-configuration classes in version 2.0.0 target the Spring Boot 2.x auto-configuration registration mechanism (`META-INF/spring.factories`), while Spring Boot 3.x uses `META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports`. As a result, the CM auto-configuration is silently not loaded — no error, no log, just no Chaos Monkey.
 
 ## Evidence
-- Request 1: `paymentMethodId:"visa"` for Mastercard card 5031... → CARD_DECLINED
-- Request 2: `paymentMethodId:"visa"` for Visa card 4235... → 500 with cc_rejected_other_reason
-- `errorHttpStatus()` has no case for `cc_rejected_*` codes → defaults to 500
-- `retryable` logic is inverted for MP-specific rejection codes
+- `application.yml` has `chaos.monkey.enabled: true` and assault/watcher config
+- Docker compose logs show **zero** chaos-monkey-related log entries (no `ChaosMonkey`, `Watcher`, or `Assault` messages)
+- `chaos-monkey-spring-boot:2.0.0` was released in 2020 for Spring Boot 2.x
+- Spring Boot 3.x requires chaos-monkey-spring-boot 3.x (e.g., 3.2.1 built for Spring Boot 3.4.5)
+
+## Proposed Fix
+Update the dependency version in `services/user-service/pom.xml`:
+- From: `chaos-monkey-spring-boot:2.0.0`
+- To: `chaos-monkey-spring-boot:3.2.1`
+
+Version 3.2.1 is built for Spring Boot 3.4.5 (exact match).
+
+## Affected Files
+- `services/user-service/pom.xml` (line 36-37: dependency version)
+
+## Test Plan
+- Rebuild Docker image: `docker compose --profile app up --build user-service`
+- Check logs for Chaos Monkey startup messages (should see `ChaosMonkey enabled`, watcher activation)
+- Make a request to user-service and verify exception is thrown
